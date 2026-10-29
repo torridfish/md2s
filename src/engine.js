@@ -1018,7 +1018,8 @@ module.exports = ({ marp }) => {
       render: (tokens, idx) => {
         if (tokens[idx].nesting !== 1) return '</div>\n';
         const [name, ...cls] = tokens[idx].info.trim().split(/\s+/);
-        return `<div class="${['area', ...cls].join(' ')}" style="grid-area: ${name}">\n`;
+        // area-<name> lets a <style scoped> pick out one area
+        return `<div class="${['area', `area-${name}`, ...cls].join(' ')}" style="grid-area: ${name}">\n`;
       },
     })
     .use(callouts)

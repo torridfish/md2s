@@ -158,7 +158,8 @@ text after text with no gap, a table, figure, formula or code block 14px from it
 ```
 
 `::: name` … `:::` puts its blocks in that area, stacked like the plain body; `::: b middle`,
-`::: b bottom` and `::: b center` place them inside the area. Blocks outside any `:::` fill the cells in
+`::: b bottom` and `::: b center` place them inside the area. Each area is a `<div class="area area-b">`,
+so one slide can style one area: `<style scoped>.area-b { font-size: 0.9em; }</style>`. Blocks outside any `:::` fill the cells in
 order, one block per cell — and two lists in a row are one list in Markdown, so give each column its own
 `:::` (or a `<div>`). Between areas the only space is the grid gap (14px down, 22px across, 12px beside
 a fit or picture column); a table, figure or formula in a layout sits at the body's left edge.

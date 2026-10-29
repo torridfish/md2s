@@ -281,6 +281,8 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 
 <!-- _layout: "a b" "a c" / auto 1fr middle -->
 
+<style scoped>.area-c { background: var(--band-blue); }</style>
+
 ::: a
 ![](assets/demo.gif)
 :::
@@ -290,7 +292,7 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 :::
 
 ::: c center
-**Area c, centred in its cell**
+**Area c, centred in its cell**, tinted by `<style scoped>.area-c { … }`
 :::
 
 ### Prose page with a body rule
