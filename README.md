@@ -4,6 +4,8 @@
 well and all look alike: a vector PDF, a PPTX of pictures, or an HTML deck to present from, with a laser
 pointer and a pen. The Markdown is the kind any LLM already writes, so an agent can draft the deck too.
 
+![Six slides from examples/gallery.md: the title page, numbered equations, algorithm2e pseudocode, code beside a prompt template, a results table, and a figure beside its text](docs/images/hero.webp)
+
 It is [Marp](https://marp.app) underneath, plus what research talks need and Marp leaves out:
 
 - one house style, set by the theme: title page, section pages, a title / subtitle / rule header, slide numbers
