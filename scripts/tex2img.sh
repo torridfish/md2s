@@ -42,7 +42,7 @@ elif [ "$mode" = algo ]; then pre="$PRE/preamble-algo.tex"; else pre="$PRE/pream
 { cat "$pre"; [ -f "$MACROS" ] && cat "$MACROS"; printf '\n\\begin{document}\n%s\n\\end{document}\n' "$body"; } > "$work/fig.tex"
 cp "$work/fig.tex" "$out.tex"
 for cmd in pdflatex pdftocairo; do
-  command -v "$cmd" >/dev/null || { echo "$cmd not found: install TeX Live (pdflatex) and poppler (pdftocairo); md2s --check" >&2; exit 1; }
+  command -v "$cmd" >/dev/null || { echo "$cmd not found: md2s setup installs TinyTeX for pdflatex and prints the command for poppler (pdftocairo)" >&2; exit 1; }
 done
 if ! ( cd "$work" && pdflatex -interaction=batchmode -halt-on-error fig.tex >/dev/null 2>&1 ); then
   cp "$work/fig.log" "$out.log"
