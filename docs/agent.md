@@ -236,7 +236,7 @@ so people on the same network can open the deck while it runs.
 | ` ```python {path="human_eval/execution.py" start=98} ` | the same, with the path in white at the top of the box (a label only: nothing is read from it) and numbering from 98 |
 | ` ```prompt ` | prompt template as text: `System:` bold, `{placeholder}` bold red, `<\|im_start\|>` on mark-blue |
 | a table | results table, centred and compact (1px cell padding): bold header on gray, 9pt, hairline grid; cells centred unless the separator row says `:--` (left), `:-:` or `--:` (right) |
-| a `role` column | each row's class, and the column is not shown: `ref` gray, `a` blue, `b` orange, `hl` highlighted, `mute` greyed out, `sep` a rule above the row |
+| a `role` column | each row's class, and the column is not shown: `ref` gray, `a` blue, `b` orange, `hl` highlighted, `mute` greyed out, `sep` a rule above the row (several may combine, `a sep`); a column headed Role holding any other value is data and stays |
 | `\| 68.9 {.best} \|`, `{.second}` | one cell: the best number bold on a tint, the runner-up underlined |
 | a table, a blank line, `{.booktabs}` | the table's style: `grid` (the default), `booktabs` (top, header and bottom rules only), `plain` (no lines), `striped` (every other row tinted), `settings` (blue header, left-aligned, short columns centred); classes combine |
 | `\|\|` at the end of a cell, `^^` as a cell | the cell spans the next column / joins the cell above (MultiMarkdown); two header rows before the separator make a grouped header |

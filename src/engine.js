@@ -420,7 +420,8 @@ function splitTables(md) {
 }
 
 // A `role` column gives each row its class (ref / a / b tint it, hl highlights, mute greys out, sep rules it
-// off; any other word is a class too) and is not shown.
+// off) and is not shown; a column headed Role with any other value in it is data, and stays.
+const ROLES = ['ref', 'a', 'b', 'hl', 'mute', 'sep'];
 function tables(md) {
   md.core.ruler.push('rs_tables', (state) => {
     const toks = state.tokens;
@@ -440,10 +441,25 @@ function tables(md) {
       if (rows.length > 2 && last.cells.every((c) => !text(c)) && last.cells.some((c) => toks[c.open].attrGet('class'))) {
         for (const c of last.cells) { const cls = toks[c.open].attrGet('class'); if (cls) toks[i].attrJoin('class', cls); }
         for (let k = last.open; k <= last.close; k++) drop.add(k);
-        if (toks[last.open - 1].type === 'tbody_open' && toks[last.close + 1].type === 'tbody_close' && rows.length === 2) { drop.add(last.open - 1); drop.add(last.close + 1); }
+        // the row alone in its row group (a blank line above it): the group goes too
+        if (toks[last.open - 1].type === 'tbody_open' && toks[last.close + 1].type === 'tbody_close') { drop.add(last.open - 1); drop.add(last.close + 1); }
         rows.pop();
       }
-      const ri = rows[0].cells.findIndex((c) => text(c).toLowerCase() === 'role');
+      // a header of empty cells (GFM wants a header row; a converter writes | | |) is no header: the table
+      // goes without one rather than show an empty band, and its rows stay rows
+      if (toks[i + 1].type === 'thead_open') {
+        let hc = i + 1;
+        while (toks[hc].type !== 'thead_close') hc++;
+        const head = rows.filter((r) => r.open < hc);
+        if (rows.length > head.length && head.every((r) => r.cells.every((c) => !text(c)))) {
+          for (let k = i + 1; k <= hc; k++) drop.add(k);
+          rows.splice(0, head.length);
+        }
+      }
+      // a `role` column only when every value is a role word: a table whose Role column holds data keeps it
+      const roleWords = (s) => !s || s.split(/\s+/).every((w) => ROLES.includes(w));
+      let ri = rows[0].cells.findIndex((c) => text(c).toLowerCase() === 'role');
+      if (ri >= 0 && !rows.slice(1).every((r) => !r.cells[ri] || roleWords(text(r.cells[ri])))) ri = -1;
       if (ri >= 0) rows.forEach((r, k) => {
         const c = r.cells[ri];
         if (!c) return;   // a row whose cells a ^^ above shifted
