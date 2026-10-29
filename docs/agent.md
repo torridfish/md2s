@@ -247,6 +247,8 @@ so people on the same network can open the deck while it runs.
 Inline: `**bold**`, `` `chip` ``, `[link](url)`, `==WIP==`, `[4-03]{.callout}` (⤷ on orange),
 `[disk full]{.alert}`, `[the formula]{.formula}`, `[aside]{.faint}`, `[<|im_end|>]{.token}`.
 A whole list item, its bullet or number and the items nested under it: `- dropped idea {.faint}`.
+Braces at the end of a line are attributes only when they hold attribute syntax (`{.class}`, `{#id}`,
+`{key=value}`); any other braces are text, so `User: {Task query}` prints as written.
 
 ## Tweaking one slide
 

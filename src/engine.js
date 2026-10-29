@@ -419,6 +419,23 @@ function splitTables(md) {
   });
 }
 
+// markdown-it-attrs reads any {…} at the end of a line as attributes, so `User: hello {Task query}` lost its
+// braces and their words. A brace group is left to it only when it is attribute syntax (.class, #id,
+// key=value); any other one is masked while it runs, and stays text.
+const ATTRS = /^\s*(?:(?:[.#][\w-]+|[\w-]+=(?:"[^"]*"|'[^']*'|[^\s"'}]+))\s*)+$/;
+function bracesPastAttrs(md) {
+  const [OPEN, CLOSE] = ['', ''];   // private-use characters, never in a deck
+  const each = (state, fn) => {
+    for (const t of state.tokens) if (t.type === 'inline' && t.children) for (const c of t.children) if (c.type === 'text') fn(c);
+  };
+  md.core.ruler.before('curly_attributes', 'rs_braces_hide', (state) => each(state, (c) => {
+    if (c.content.includes('{')) c.content = c.content.replace(/\{([^{}]*)\}/g, (m, inner) => (ATTRS.test(inner) ? m : `${OPEN}${inner}${CLOSE}`));
+  }));
+  md.core.ruler.after('curly_attributes', 'rs_braces_show', (state) => each(state, (c) => {
+    if (c.content.includes(OPEN)) c.content = c.content.replaceAll(OPEN, '{').replaceAll(CLOSE, '}');
+  }));
+}
+
 // A `role` column gives each row its class (ref / a / b tint it, hl highlights, mute greys out, sep rules it
 // off) and is not shown; a column headed Role with any other value in it is data, and stays.
 const ROLES = ['ref', 'a', 'b', 'hl', 'mute', 'sep'];
@@ -1146,6 +1163,7 @@ module.exports = ({ marp }) => {
     .use(require('markdown-it-multimd-table'), { multiline: false, rowspan: true, headerless: false, multibody: true })
     .use(require('markdown-it-attrs'), { allowedAttributes: ['class', 'style', 'scale', 'path', 'start'] })
     .use(spansPastAttrs)
+    .use(bracesPastAttrs)
     .use(require('markdown-it-container'), 'area', {
       validate: (params) => /^[A-Za-z][\w-]*(\s+[\w-]+)*$/.test(params.trim()),
       render: (tokens, idx) => {
