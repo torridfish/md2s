@@ -76,26 +76,92 @@ function splitRows(body) {
   return rows;
 }
 /** Number a display formula the LaTeX way, deck-wide: equation gets one number, align / gather one per
-    row; the starred forms, \tag{…}, \notag and \nonumber opt out. KaTeX would restart at (1) per formula. */
-function numberEquations(tex, next) {
-  return tex.replace(/\\begin\{(equation|align|gather)\}([\s\S]*?)\\end\{\1\}/g, (_, env, body) => {
-    const tag = (row) => (/\\(tag|notag|nonumber)\b/.test(row) || !row.trim() ? row.replace(/\\(notag|nonumber)\b/g, '') : `${row} \\tag{${next()}}`);
+    row; the starred forms, \tag{…}, \notag and \nonumber opt out. KaTeX would restart at (1) per formula.
+    A \label{x} on a numbered row (or one with \tag) records x → its number in `labels`; every \label is
+    taken out, since KaTeX does not keep it. Returns the TeX and the numbers given here, for anchors. */
+function numberEquations(tex, next, labels) {
+  const given = [];
+  const out = tex.replace(/\\begin\{(equation|align|gather)\}([\s\S]*?)\\end\{\1\}/g, (_, env, body) => {
+    const tag = (row) => {
+      const label = (row.match(/\\label\{([^}]*)\}/) || [])[1];
+      row = row.replace(/\\label\{[^}]*\}/g, '');
+      const manual = (row.match(/\\tag\*?\{([^}]*)\}/) || [])[1];
+      if (/\\(notag|nonumber)\b/.test(row) || !row.trim()) return row.replace(/\\(notag|nonumber)\b/g, '');
+      const n = manual ?? String(next());
+      given.push(n);
+      if (label) labels.set(label, n);
+      return manual ? row : `${row} \\tag{${n}}`;
+    };
     if (env === 'equation') return tag(body);
     return `\\begin{${env}*}${splitRows(body).map(tag).join('\\\\')}\\end{${env}*}`;
   });
+  return { tex: out.replace(/\\label\{[^}]*\}/g, ''), given };
 }
+const eqId = (n) => `eq-${String(n).replace(/[^\w.-]/g, '_')}`;
+const EQREF = /\\(eq)?ref\{([^}]*)\}/g;
 function mathMacros(md) {
   const macros = readMacros(fs.readFileSync(path.join(TEX, 'preamble-math.tex'), 'utf8') + '\n' + userMacros());
   md.core.ruler.after('inline', 'rs_math_macros', (state) => {
     let n = 0;
     const next = () => ++n;
+    const labels = new Map();
     for (const t of state.tokens) {
       // a ```math fence is display math, the same as $$ … $$
       if (t.type === 'fence' && t.info.trim().split(/\s+/)[0] === 'math') Object.assign(t, { type: 'marp_math_block', tag: 'math', markup: '$$', info: '' });
-      if (t.type === 'marp_math_block') t.content = numberEquations(expand(t.content, macros), next);
+      if (t.type === 'marp_math_block') {
+        const { tex, given } = numberEquations(expand(t.content, macros), next, labels);
+        t.content = tex;
+        t.meta = { ...(t.meta || {}), eqs: given };
+      }
       if (t.type === 'inline') for (const c of t.children || []) if (c.type === 'marp_math_inline') c.content = expand(c.content, macros);
     }
+    // \eqref{x} → (n), \ref{x} → n, once every number is known (so a reference may come first): plain
+    // text and the footnotes' text get a link to the equation, math gets the number as text
+    const number = (label) => {
+      if (labels.has(label)) return labels.get(label);
+      process.stderr.write(`md2s: unknown equation label ${label}\n`);
+      return null;
+    };
+    const inMath = (tex) => tex.replace(EQREF, (_, eq, label) => {
+      const k = number(label);
+      return k == null ? `\\textcolor{#CC0000}{\\text{(?${label})}}` : `\\text{${eq ? `(${k})` : k}}`;
+    });
+    const link = (eq, label) => {
+      const k = number(label);
+      if (k == null) return Object.assign(new state.Token('html_inline', '', 0), { content: `<span class="alert">(?${md.utils.escapeHtml(label)})</span>` });
+      return Object.assign(new state.Token('html_inline', '', 0), { content: `<a class="eqref" href="#${eqId(k)}">${eq ? `(${k})` : k}</a>` });
+    };
+    // markdown-it splits text at \ and { until text_join runs later, so join neighbouring text first
+    const joined = (children) => children.reduce((out, c) => {
+      const prev = out[out.length - 1];
+      if (/^text/.test(c.type) && prev && prev.type === 'text') prev.content += c.content;
+      else out.push(/^text/.test(c.type) ? Object.assign(new state.Token('text', '', 0), { content: c.content }) : c);
+      return out;
+    }, []);
+    const inText = (children) => joined(children).flatMap((c) => {
+      if (c.type === 'marp_math_inline') { c.content = inMath(c.content); return [c]; }
+      if (c.type !== 'text' || !EQREF.test(c.content)) return [c];
+      EQREF.lastIndex = 0;
+      const out = [];
+      let last = 0;
+      for (const m of c.content.matchAll(EQREF)) {
+        out.push(Object.assign(new state.Token('text', '', 0), { content: c.content.slice(last, m.index) }), link(m[1], m[2]));
+        last = m.index + m[0].length;
+      }
+      out.push(Object.assign(new state.Token('text', '', 0), { content: c.content.slice(last) }));
+      return out;
+    });
+    for (const t of state.tokens) {
+      if (t.type === 'marp_math_block') t.content = inMath(t.content);
+      if (t.type === 'inline' && t.children && /\\(eq)?ref\{/.test(t.content)) t.children = inText(t.children);
+    }
   });
+  // anchors for the numbers a display formula carries, so \eqref links land on it
+  const block = md.renderer.rules.marp_math_block;
+  md.renderer.rules.marp_math_block = (tokens, idx, ...rest) => {
+    const ids = ((tokens[idx].meta && tokens[idx].meta.eqs) || []).map((k) => `<span class="eq-anchor" id="${eqId(k)}"></span>`).join('');
+    return ids + block(tokens, idx, ...rest);
+  };
 }
 
 // ---------- figures: image-only paragraphs, 1:1 size, run labels ----------
@@ -137,8 +203,28 @@ function cached(kind, file, extra, ext, make) {
 }
 // embedded, so an HTML deck still shows them away from this machine's cache
 const dataUri = (file, type) => `data:${type};base64,${fs.readFileSync(file).toString('base64')}`;
+// ![](https://youtu.be/ID): a player in --html; elsewhere its thumbnail (fetched once, cached) with a play
+// mark, linked to the video, or a plain link when there is no network
+const YOUTUBE = /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/;
+function youtubeThumb(id) {
+  const out = path.join(CACHE, `youtube-${id}.jpg`);
+  if (fs.existsSync(out)) return out;
+  fs.mkdirSync(CACHE, { recursive: true });
+  // maxresdefault is 16:9 but not always there; hqdefault always is (4:3, letterboxed)
+  const get = `const [id, out] = process.argv.slice(1); (async () => { for (const n of ['maxresdefault', 'hqdefault']) {
+    const r = await fetch('https://i.ytimg.com/vi/' + id + '/' + n + '.jpg').catch(() => null);
+    if (r && r.ok) { require('fs').writeFileSync(out, Buffer.from(await r.arrayBuffer())); return; } } process.exit(1); })();`;
+  execFileSync(process.execPath, ['-e', get, id, out], { stdio: 'pipe', timeout: 15000 });
+  return out;
+}
 function media(t) {
   const src = t.attrGet('src') || '';
+  const yt = src.match(YOUTUBE);
+  if (yt) {
+    t.meta = { ...(t.meta || {}), youtube: yt[1], video: src, natural: { w: 480, h: 270 } };
+    try { t.attrSet('src', dataUri(youtubeThumb(yt[1]), 'image/jpeg')); } catch { t.meta.offline = true; }
+    return;
+  }
   if (/^[a-z]+:/i.test(src)) return;
   const [file, hash = ''] = src.split('#');
   try {
@@ -186,8 +272,13 @@ function figures(md) {
     const label = t.attrGet('title');
     if (label) t.attrs = t.attrs.filter(([k]) => k !== 'title');
     let html = image(tokens, idx, options, env, self);
-    if (t.meta && t.meta.video) {
-      const esc = md.utils.escapeHtml;
+    const esc = md.utils.escapeHtml;
+    if (t.meta && t.meta.youtube) {
+      const w = esc(t.attrGet('style') || `width:${t.meta.natural.w}px`);
+      if (process.env.MD2S_FORMAT === 'html') html = `<iframe class="youtube" src="https://www.youtube-nocookie.com/embed/${t.meta.youtube}" style="${w}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+      else if (t.meta.offline) html = `<a class="youtube-link" href="${esc(t.meta.video)}">▶ ${esc(t.meta.video)}</a>`;
+      else html = `<a class="video youtube" href="${esc(t.meta.video)}"><img src="${esc(t.attrGet('src'))}" style="${w}" alt="YouTube"></a>`;
+    } else if (t.meta && t.meta.video) {
       html = process.env.MD2S_FORMAT === 'html'
         ? `<video src="${esc(t.meta.video)}" poster="${esc(t.attrGet('src'))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
         : `<a class="video" href="${esc(t.meta.video)}">${html}</a>`;
@@ -446,6 +537,89 @@ function repeatTitles(src) {
   const line = (x) => (typeof x === 'string' ? x : `### ${x.part.text} (${x.k}/${x.part.n})`);
   for (const [i, del, add] of edits.reverse()) lines.splice(i, del, ...add.map(line));
   return lines.join('\n');
+}
+
+// ---------- citations: [@key] against a BibTeX bibliography, and a References page ----------
+// Front matter `bibliography:` is a .bib path (relative to the deck), a list of them, or BibTeX written in
+// place; `citation-style:` is apa (the default), ieee, vancouver, harvard1 or a .csl file. Every [@a] or
+// [@a; @b] becomes a marker linking to its entry: (Author et al., 2017) in an author-date style, [1] in a
+// numeric one, numbered in citing order. The cited works are listed on References slides at the end
+// (before a --thanks page), six to a slide. Footnotes know nothing of this. An unknown key shows as
+// [?key] and is reported on stderr; the build goes on.
+const CITE = /\[(@[^\s;\]]+(?:\s*;\s*@[^\s;\]]+)*)\]/g;
+const REFS_PER_SLIDE = 6;
+function frontMatter(src) {
+  const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!m) return {};
+  try { return require('yaml').parse(m[1]) || {}; } catch { return {}; }
+}
+function cslStyle(name) {
+  const cfg = require('@citation-js/core').plugins.config.get('@csl');
+  const file = name === 'ieee' ? path.join(ROOT, 'csl', 'ieee.csl')
+    : /\.csl$/.test(name) ? path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), name) : null;
+  if (file) {
+    const id = `md2s-${crypto.createHash('sha1').update(file).digest('hex').slice(0, 8)}`;
+    if (!cfg.styles.has(id)) cfg.styles.add(id, fs.readFileSync(file, 'utf8'));
+    return id;
+  }
+  if (!cfg.styles.has(name)) throw new Error(`unknown citation-style ${name}: use apa, ieee, vancouver, harvard1 or a .csl file`);
+  return name;
+}
+const warn = (msg) => process.stderr.write(`md2s: ${msg}\n`);
+function citations(src) {
+  const meta = frontMatter(src);
+  if (!meta.bibliography) return src;
+  const { Cite, plugins } = require('@citation-js/core');
+  require('@citation-js/plugin-bibtex');
+  require('@citation-js/plugin-csl');
+  let cite, style;
+  try {
+    const deck = process.env.MD2S_DECK_DIR || process.cwd();
+    const bib = (Array.isArray(meta.bibliography) ? meta.bibliography : [meta.bibliography]).map(String)
+      .map((b) => (/@\w+\s*\{/.test(b) ? b : fs.readFileSync(path.resolve(deck, b), 'utf8')));
+    cite = new Cite(bib.join('\n'));
+    style = cslStyle(String(meta['citation-style'] || 'apa'));
+  } catch (e) {
+    warn(`bibliography: ${e.message}`);
+    return src;
+  }
+  const known = new Set(cite.data.map((e) => e.id));
+  // first pass: the cited keys, in citing order (a numeric style numbers them so)
+  const lines = src.split('\n');
+  const cited = [];
+  const outsideCode = (l, fn) => l.split(/(`+[^`]*`+)/).map((part, k) => (k % 2 ? part : fn(part))).join('');
+  eachLine(lines, (l) => outsideCode(l, (t) => t.replace(CITE, (_, keys) => {
+    for (const k of keys.split(';').map((x) => x.trim().slice(1))) if (known.has(k) && !cited.includes(k)) cited.push(k);
+    return '';
+  })));
+  const engine = plugins.config.get('@csl').engine(cite.data, style, 'en-US', 'html');
+  engine.updateItems(cited);
+  const numeric = /citation-format="numeric"/.test(plugins.config.get('@csl').styles.get(style));
+  const marker = (k) => {
+    const text = engine.makeCitationCluster([{ id: k }]);
+    return `<a href="#ref-${k}">${numeric ? text.replace(/^\[|\]$/g, '') : text.replace(/^\(|\)$/g, '')}</a>`;
+  };
+  eachLine(lines, (l, i) => {
+    lines[i] = outsideCode(l, (t) => t.replace(CITE, (_, keys) => {
+      const parts = keys.split(';').map((x) => x.trim().slice(1)).map((k) => {
+        if (known.has(k)) return marker(k);
+        warn(`unknown citation key ${k}`);
+        return `<span class="alert">?${k}</span>`;
+      });
+      return `<span class="cite">${numeric ? `[${parts.join(', ')}]` : `(${parts.join('; ')})`}</span>`;
+    }));
+  });
+  if (!cited.length) return lines.join('\n');
+  // the References slides: links made clickable, each entry an anchor for its markers
+  const [params, entries] = engine.makeBibliography();
+  const html = entries.map((e, n) => e.trim()
+    .replace(/(^|[\s>(])(https?:\/\/[^\s<]+?)([.,;]?)(?=[\s<]|$)/g, '$1<a href="$2">$2</a>$3')
+    .replace(/^<div class="csl-entry">/, `<div class="csl-entry" id="ref-${params.entry_ids[n][0]}">`));
+  const pages = [];
+  for (let k = 0; k < html.length; k += REFS_PER_SLIDE) pages.push(html.slice(k, k + REFS_PER_SLIDE));
+  const divided = DIVIDED.test(src);
+  const slides = pages.map((page, k) => `${k === 0 && divided ? '' : '---\n\n'}## References\n${pages.length > 1 ? `### Works cited (${k + 1}/${pages.length})\n` : ''}\n<div class="references${numeric ? ' numeric' : ''}">\n${page.join('\n')}\n</div>\n`);
+  return `${lines.join('\n').replace(/\s*$/, '')}\n\n${slides.join('\n')}`;
 }
 
 /** front matter `toc: true` (or `toc: Title`): a contents slide after the first slide, filled in by tocs() */
@@ -720,7 +894,7 @@ module.exports = ({ marp }) => {
   // with headingDivider the # line starts its own slide; a --- as well would leave an empty slide between
   const thanks = (src) => (process.env.MD2S_THANKS ? `${src.replace(/\s*$/, '')}\n\n${DIVIDED.test(src) ? '' : '---\n\n'}# ${process.env.MD2S_THANKS}\n` : src);
   const parse = marp.markdown.parse.bind(marp.markdown);
-  marp.markdown.parse = (src, env) => parse(thanks(insertToc(repeatTitles(src))), env);
+  marp.markdown.parse = (src, env) => parse(thanks(insertToc(repeatTitles(citations(src)))), env);
   // md2s --html / --serve: the presenting tools (laser, pen, click to turn) go in after the slides
   if (process.env.MD2S_FORMAT === 'html') {
     const render = marp.render.bind(marp);

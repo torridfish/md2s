@@ -4,6 +4,7 @@ theme: default
 paginate: true
 headingDivider: 2
 toc: true
+bibliography: gallery.bib     # citation-style: apa by default; ieee, vancouver or a .csl file
 ---
 
 <!-- md2s gallery: every slide type and component, with made-up content. Render it after every theme or
@@ -38,6 +39,17 @@ Plain text with `a/config/key`, a [link](https://marp.app), ==work in progress==
 
 [^lead]: Footnotes are numbered per slide, in the order they are cited.
 [^uncited]: A footnote nobody cites stays on the slide it is written in.
+
+### Citations
+
+> Cite with `[@key]` from the deck's `bibliography:`; each marker links to the References slides at the end.
+
+- Self-attention replaced recurrence [@vaswani2017attention], and residual connections made depth trainable [@he2016deep]
+- Two works at once [@devlin2019bert; @dosovitskiy2021image]
+- Training minimises the loss \eqref{eq:nll}, which a later slide defines: references to equations work forwards too
+- Footnotes stay separate from citations[^fn-vs-cite]
+
+[^fn-vs-cite]: A footnote is a per-slide note; a citation points into the bibliography, here with Adam [@kingma2015adam].
 
 ### Callouts
 
@@ -87,6 +99,10 @@ Plain text with `a/config/key`, a [link](https://marp.app), ==work in progress==
 ![](assets/scatter.png "Embeddings")
 :::
 
+### A YouTube video: a player in --html, its thumbnail in the PDF
+
+![](https://www.youtube.com/watch?v=dQw4w9WgXcQ "Never Gonna Give You Up")
+
 ### A GIF and a PDF page
 
 <!-- _layout: two -->
@@ -106,13 +122,14 @@ Plain text with `a/config/key`, a [link](https://marp.app), ==work in progress==
 
 $$
 \begin{equation}
+\label{eq:bayes}
 p(\theta \mid \mathcal D) = \frac{p(\mathcal D \mid \theta)\, p(\theta)}{\int p(\mathcal D \mid \theta')\, p(\theta')\, d\theta'}
 \end{equation}
 $$
 
 ```math
 \begin{align}
-\mathcal L(\theta) &= -\sum_{i=1}^{N} \log p_\theta(y_i \mid x_i) \\
+\mathcal L(\theta) &= -\sum_{i=1}^{N} \log p_\theta(y_i \mid x_i) \label{eq:nll} \\
   &\approx -N\, \mathbb E_{(x, y) \sim \mathcal D}\left[\log p_\theta(y \mid x)\right] \notag \\
 \nabla_\theta \mathcal L &= -\sum_{i=1}^{N} \nabla_\theta \log p_\theta(y_i \mid x_i)
 \end{align}
@@ -121,6 +138,8 @@ $$
 $$
 \operatorname{softmax}(\mathbf z)_i = \frac{e^{z_i}}{\sum_j e^{z_j}} \tag{A.1}
 $$
+
+- \eqref{eq:bayes} is Bayes' rule; minimising \eqref{eq:nll} is maximum likelihood
 
 ### Equation slide (class equation)
 
@@ -204,11 +223,11 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 
 ### Literature table
 
-| Method | Venue | Data | Open source |
+| Method | Paper | Data | Open source |
 | --- | --- | --- | --- |
-| Transformer | NeurIPS 2017 | WMT | v |
-| BERT | NAACL 2019 | BooksCorpus, Wikipedia | v |
-| ViT | ICLR 2021 | ImageNet-21k | v |
+| Transformer | [@vaswani2017attention] | WMT | v |
+| BERT | [@devlin2019bert] | BooksCorpus, Wikipedia | v |
+| ViT | [@dosovitskiy2021image] | ImageNet-21k | v |
 
 {.settings}
 

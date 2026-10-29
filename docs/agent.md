@@ -28,7 +28,27 @@ theme: default        # md2s's theme (also used when the line is left out)
 paginate: true        # slide number at the bottom right of every slide
 headingDivider: 2     # every # and ## starts a slide, so no --- is needed
 toc: true             # a contents slide after the first one ("Outline"; `toc: Contents` names it)
+bibliography: refs.bib        # BibTeX: a path (relative to the deck), a list of paths, or entries written in place
+citation-style: apa           # the default; ieee, vancouver, harvard1, or a .csl file
 ---
+```
+
+Every setting lives here, in the deck; the command line only chooses outputs.
+
+## Citations
+
+With a `bibliography:`, `[@key]` cites one work and `[@a; @b]` several. A marker reads `(Vaswani et al.,
+2017)` in an author-date style (apa, harvard1) and `[1]` in a numeric one (ieee, vancouver, numbered in
+citing order); it links to the work's entry on the **References** slides, which md2s adds at the end
+(before a `--thanks` page, six entries a slide, `(1/2)` when there are more) and lists on the contents
+slide. Only cited works are listed. One style decides both the markers and the entries. Citations may sit
+in text, tables and footnotes; footnotes themselves are a separate thing. An unknown key shows as a red
+`?key` and is reported, and the build goes on.
+
+```yaml
+bibliography: |              # a few entries need no .bib file
+  @article{lecun2015deep, title={Deep learning}, author={LeCun, Yann and Bengio, Yoshua and Hinton, Geoffrey},
+    journal={Nature}, volume={521}, pages={436--444}, year={2015}}
 ```
 
 The contents slide lists every later slide's `##` in bold with its `###` under it, in two columns; a run of
@@ -157,6 +177,7 @@ summary, question) purple, `WARNING` (attention, todo) amber, `CAUTION` (danger,
 | `![](fig.pdf#page=2)` | that page of a PDF as a vector picture (pdftocairo), at 1:1 (pt x 4/3) |
 | `![](anim.gif)` | moves in `--html`; a PDF or PPTX shows its first frame |
 | `![](clip.mp4)` (webm, mov) | a player in `--html`; a PDF or PPTX shows its first frame (ffmpeg) with a play mark, linked to the file |
+| `![](https://youtu.be/ID "Title")` (or a youtube.com link) | a YouTube player in `--html`; a PDF or PPTX shows its thumbnail (fetched once at build time) with a play mark, linked to the video; offline, a plain link |
 
 Diagrams and frames are cached in `~/.cache/md2s/`.
 
@@ -188,6 +209,7 @@ so people on the same network can open the deck while it runs.
 | `![w:300](f.png)` | Marp's size keywords still work for one picture |
 | `$x_i$`, `$$ … $$`, ```` ```math ```` | KaTeX, Computer Modern, selectable and searchable in the PDF; inline math at the body size, display math centred at 1.2x the body |
 | `\begin{equation} … \end{equation}` inside `$$` | numbered (1), (2) … in order through the deck, the number at the right edge; `align` / `gather` number each row (`\notag` skips one), the starred forms and plain `$$` are unnumbered, `\tag{A.1}` sets a number by hand |
+| `\label{eq:x}` in a numbered row, `\eqref{eq:x}` / `\ref{eq:x}` anywhere | `(2)` / `2`, in text a link to the equation; works before the equation too; an unknown label shows as a red `(?eq:x)` and is reported |
 | your own macros | `\newcommand` / `\DeclareMathOperator` lines in `~/.config/md2s/macros.tex` work in `$…$`, `$$…$$` and LaTeX-rendered fences; `\argmax`, `\argmin` are built in |
 | ` ```algo ` | an `algorithm2e` body rendered with the local TeX Live (800 dpi, transparent; `{scale=1.3}` resizes) |
 | ` ```latex {.render} ` | any LaTeX body rendered the same way |
@@ -249,6 +271,7 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
 ## Notes
 
 - Render caches: TeX, diagram and media renders live in `~/.cache/md2s/`, keyed by content.
+- Citations and footnotes are separate: a citation `[@key]` points into the bibliography and the References slides; a footnote `[^x]` is a note at the foot of its slide.
 - Footnotes are numbered 1, 2 per slide in the order they are cited, marked by an italic superscript number in the text and at the foot (square brackets are left to citations); the mark in the text links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
 - Marp does not warn about overflow: read the PDF pages before handing a deck over.
 - Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

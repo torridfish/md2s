@@ -7,10 +7,11 @@ pointer and a pen. The Markdown is the kind any LLM already writes, so an agent 
 It is [Marp](https://marp.app) underneath, plus what research talks need and Marp leaves out:
 
 - one house style, set by the theme: title page, section pages, a title / subtitle / rule header, slide numbers
-- per-slide footnotes, numbered equations (`\begin{equation}`), a contents slide (`toc: true`)
+- per-slide footnotes, numbered equations with `\label` / `\eqref`, a contents slide (`toc: true`)
+- BibTeX citations (`bibliography: refs.bib`, `[@key]`) with a References page, in APA, IEEE or any CSL style
 - layouts without CSS: `<!-- _layout: img-right -->`, `::: a` areas, `middle`
 - callouts (`> [!NOTE]`), tables with row tints, code with line numbers that copying leaves out
-- ```` ```mermaid ````, ```` ```dot ````, ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs and videos as pictures
+- ```` ```mermaid ````, ```` ```dot ````, ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs, videos and YouTube links
 - a `###` that runs over continues after `---`, numbered (1/2), (2/2)
 
 ## Install
@@ -33,4 +34,5 @@ md2s --skill                   # every bit of syntax, written for an agent (or y
 `examples/gallery.md` shows every slide type and component; render it after changing the theme.
 Your own math macros go in `~/.config/md2s/macros.tex`.
 
-The cover photo in `themes/` is the author's own.
+The cover photo in `themes/` is the author's own. `csl/ieee.csl` is from the
+[CSL project](https://github.com/citation-style-language/styles), CC BY-SA 3.0.

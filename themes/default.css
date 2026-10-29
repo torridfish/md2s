@@ -207,6 +207,8 @@ a.video > img { display: block; max-width: 100%; max-height: 100%; }
 a.video::after { content: '▶'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; font: 20px/44px sans-serif; text-align: center; text-indent: 3px; }
 video { max-width: 100%; max-height: 100%; }
+/* YouTube: a 16:9 player in --html, its thumbnail (cropped to 16:9) elsewhere */
+iframe.youtube, a.youtube > img { aspect-ratio: 16 / 9; max-width: 100%; max-height: 100%; height: auto; border: 0; object-fit: cover; }
 
 /* ---------- diagrams: ```mermaid / ```dot as inline SVG at 1:1, centred, shrinking to fit ---------- */
 .diagram { display: flex; justify-content: center; min-height: 0; flex: 0 1 auto; }
@@ -277,6 +279,14 @@ pre.prompt .path { color: var(--code-green); }
 .toc > ul > li > a { font-weight: bold; }
 .toc ul ul { padding-left: var(--mark-w); }
 .toc a { color: var(--ink); text-decoration: none; }
+
+/* ---------- citations and the References slides ---------- */
+.cite a, a.eqref { color: var(--link); text-decoration: none; }
+.references { padding: 0 var(--inset-body); }
+.references .csl-entry { padding-left: 2em; text-indent: -2em; margin-bottom: 6px; }   /* author-date: a hanging indent */
+.references.numeric .csl-entry { display: flex; gap: 0.6em; padding-left: 0; text-indent: 0; }
+.references.numeric .csl-left-margin { flex: none; min-width: 2em; }
+.references a { overflow-wrap: break-word; }   /* a long URL moves to the next line before it breaks */
 
 /* ---------- footnotes: an italic superscript number, the same in the text and at the foot ---------- */
 /* (brackets are left to citations), and the slide number */
