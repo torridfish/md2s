@@ -77,6 +77,7 @@ function measure(slack) {
   const deck = path.resolve(process.argv[2]);
   const exe = require('./setup.js').chromium();
   if (!exe) { warn('layout check skipped: it needs Chrome, Chromium or Edge (md2s setup)'); return; }
+  process.env.MD2S_QUIET = '1';   // the engine's own warnings came with the build
   const config = require('./config.js');
   // Marp's own marp-core and puppeteer-core, found from marp-cli wherever npm put them
   const cli = path.dirname(require.resolve('@marp-team/marp-cli/package.json'));

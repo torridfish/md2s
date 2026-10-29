@@ -633,13 +633,17 @@ function repeatTitles(src) {
   const parts = []; // subsections continued after a ---: { line, text, n }
   let part = null;
   const nextLine = (i) => { let j = i + 1; while (j < lines.length && !lines[j].trim()) j++; return lines[j] || ''; };
+  // without headingDivider a ## does not start a slide: slides that get a second ## (a deck with no --- is
+  // one slide) are counted for a warning
+  let slideH2s = 0;
+  const crowded = [];
   eachLine(lines, (l, i) => {
     if (/^\s*(---|\*\*\*|___)\s*$/.test(l)) {
       const next = nextLine(i);
       // a --- at the end of the deck, or right before another, would open a slide with nothing on it
       // (and, after a subsection, an empty continuation numbered as a part): it is dropped
       if (!next.trim() || /^\s*(---|\*\*\*|___)\s*$/.test(next)) { edits.push([i, 1, []]); return; }
-      hasH2 = false; seenH3 = false;
+      hasH2 = false; seenH3 = false; slideH2s = 0;
       // with headingDivider a # or ## breaks the slide itself: the --- in front would leave an empty slide
       if (divided && /^#{1,2}\s/.test(next)) { edits.push([i, 1, []]); return; }
       if (divided && h2 && /^###\s/.test(next)) { edits.push([i, 1, [`## ${h2}`]]); hasH2 = true; return; }
@@ -656,13 +660,20 @@ function repeatTitles(src) {
     const h = l.match(/^(#{1,3})\s+(.*)$/);
     if (!h) return;
     if (h[1] === '#') { h2 = null; h3 = null; hasH2 = false; seenH3 = false; }
-    else if (h[1] === '##') { h2 = h[2]; h3 = null; hasH2 = true; seenH3 = false; }
+    else if (h[1] === '##') {
+      h2 = h[2]; h3 = null; hasH2 = true; seenH3 = false;
+      if (!divided && ++slideH2s === 2) crowded.push(h[2]);
+    }
     else {
       if (h2 && (divided ? seenH3 : !hasH2)) { edits.push([i, 0, [`## ${h2}`, '']]); hasH2 = true; }
       h3 = h[2]; seenH3 = true;
       part = { line: i, text: h3, n: 1 };
     }
   });
+  if (crowded.length) {
+    warn(`${crowded.length} slide${crowded.length > 1 ? 's have' : ' has'} a second ## (first: "## ${crowded[0]}"), and without `
+      + 'headingDivider a ## does not start a slide: add headingDivider: 2 to the front matter, or --- between slides');
+  }
   for (const pt of parts) lines[pt.line] = `### ${pt.text} (1/${pt.n})`;
   const line = (x) => (typeof x === 'string' ? x : `### ${x.part.text} (${x.k}/${x.part.n})`);
   for (const [i, del, add] of edits.reverse()) lines.splice(i, del, ...add.map(line));
@@ -705,7 +716,8 @@ function cslStyle(name) {
   if (!cfg.styles.has(name)) throw new Error(`unknown citation-style ${name}: use apa, ieee, vancouver, harvard1 or a .csl file`);
   return name;
 }
-const warn = (msg) => process.stderr.write(`md2s: ${msg}\n`);
+// MD2S_QUIET: the layout check renders the deck a second time, and the build has said all this already
+const warn = (msg) => { if (!process.env.MD2S_QUIET) process.stderr.write(`md2s: ${msg}\n`); };
 function citations(src) {
   const meta = settings(src);
   if (!meta.bibliography) return src;

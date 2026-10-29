@@ -90,16 +90,21 @@ section > * { margin: 0; flex: none; }
 /* ---------- header: title, amber subtitle, the line under it ---------- */
 /* headings are placed without flexbox: a flex container would split text and inline math into separate
    items and drop the space between them */
-section h2 {
+section > h2 {
   position: absolute; left: var(--margin-x); bottom: calc(540px - var(--title-top) - var(--title-height)); width: calc(960px - 2 * var(--margin-x));
   margin: 0; padding-left: var(--header-inset); box-sizing: border-box;
   font: 400 var(--title-size)/var(--leading) var(--serif); white-space: nowrap; overflow: hidden;
 }
-section h3 {
+section > h3 {
   position: absolute; left: var(--margin-x); top: calc(var(--subtitle-top) + var(--subtitle-height) / 2); transform: translateY(-50%); width: calc(960px - 2 * var(--margin-x));
   margin: 0; padding-left: var(--header-inset); box-sizing: border-box;
   font: 400 var(--subtitle-size)/var(--leading) var(--serif); color: var(--amber); white-space: nowrap; overflow: hidden;
 }
+/* a ## or ### further down a slide (one not first on it, or one in a layout area) heads part of the body; it
+   is not the slide's title, so it is set in the body's flow, bold, and never over the header */
+:is(.body, .area) :is(h2, h3, h4) { position: static; margin: 0; font: 700 var(--body-size)/var(--leading) var(--serif); color: var(--ink); }
+:is(.body, .area) h2 { font-size: var(--subtitle-size); }
+:is(.body:not(.layout), .area) > * + :is(h2, h3, h4) { margin-top: var(--block-gap); }
 /* A slide's own title and subtitle are in the slide's flow, padded so that one line of each sits exactly on
    the anchors above (title in title-top … +title-height, subtitle centred in its band, the line at rule-top);
    a title or subtitle too long for one line wraps, and its second line moves the line and the body down
