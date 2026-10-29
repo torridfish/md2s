@@ -1,7 +1,7 @@
 /* @theme default */
 /* md2s's default theme for Marp. The canvas is a 10 x 5.625 in slide at 96 px/in; every anchor and size is a
    variable in :root below, so moving the header, the body box or the footnote band is a change there.
-   All text is Times New Roman at three sizes (24pt title, 14pt subtitle, 11pt lead and body), 9pt tables,
+   All text is Liberation Serif (Times New Roman's metrics) at three sizes (24pt title, 14pt subtitle, 11pt lead and body), 9pt tables,
    7pt footnotes, 30pt on the title page; code stays monospace and math is KaTeX. The engine (src/engine.js) gives every
    slide its type as a class, read from the Markdown:
      title    # Title + a subtitle paragraph (the cover), or a last slide holding only a # line (the thanks page)
@@ -13,19 +13,31 @@
    <!-- _layout: … --> it is a grid (presets below, or a grid-template of named areas filled with ::: name).
    Classes for a whole content slide (<!-- _class: … -->): prose, equation (columns: the old two-column class,
    now a layout picked by the engine).
-   The cover photo URL placeholder is filled in by the engine. */
+   The cover photo URL and the __FONT__ placeholders are filled in by the engine. */
 
+/* the fonts ship with md2s (themes/fonts, subsets: see its README), so a deck sets the same on every machine;
+   the system fonts after them in the stacks only fill in characters the subsets leave out (CJK above all) */
+@font-face { font-family: 'md2s Serif'; src: url(__FONT__md2s-serif-regular.woff2) format('woff2'); font-weight: normal; font-style: normal; }
+@font-face { font-family: 'md2s Serif'; src: url(__FONT__md2s-serif-bold.woff2) format('woff2'); font-weight: bold; font-style: normal; }
+@font-face { font-family: 'md2s Serif'; src: url(__FONT__md2s-serif-italic.woff2) format('woff2'); font-weight: normal; font-style: italic; }
+@font-face { font-family: 'md2s Serif'; src: url(__FONT__md2s-serif-bold-italic.woff2) format('woff2'); font-weight: bold; font-style: italic; }
+@font-face { font-family: 'md2s Mono'; src: url(__FONT__md2s-mono-regular.woff2) format('woff2'); font-weight: normal; font-style: normal; }
+@font-face { font-family: 'md2s Mono'; src: url(__FONT__md2s-mono-bold.woff2) format('woff2'); font-weight: bold; font-style: normal; }
+@font-face { font-family: 'md2s Mono'; src: url(__FONT__md2s-mono-italic.woff2) format('woff2'); font-weight: normal; font-style: italic; }
+@font-face { font-family: 'md2s Mono'; src: url(__FONT__md2s-mono-bold-italic.woff2) format('woff2'); font-weight: bold; font-style: italic; }
+/* code boxes: Fira Code Retina, one face (bold and italic are synthesised, as with the desktop font) */
+@font-face { font-family: 'md2s Code'; src: url(__FONT__md2s-code.woff2) format('woff2'); }
 /* arrows come from FreeSerif: Liberation Serif's → is tiny and it has no ➔ or ⤷, which fall back to a sans */
-@font-face { font-family: 'Slide Arrows'; src: local('FreeSerif'); unicode-range: U+2190-21FF, U+2794, U+27A4, U+2933-2937; }
+@font-face { font-family: 'Slide Arrows'; src: url(__FONT__md2s-arrows.woff2) format('woff2'), local('FreeSerif'); unicode-range: U+2190-21FF, U+2794, U+27A4, U+2933-2937; }
 
 :root {
   --ink: #000000; --ink-muted: #595959; --ink-faint: #9E9E9E; --ink-code: #2B3038; --surface-code: #F4F4F4;
   --amber: #9C6B1E; --link: #0000EE; --code-green: #188038; --code-blue: #1155CC; --code-orange: #B45F06;
   --alert: #FF0000; --alert-deep: #CC0000; --mark-orange: #F9CB9C; --mark-blue: #C9DAF8; --mark-yellow: #FFF2CC;
   --surface-head: #D9D9D9; --surface-head-blue: #D1E0F9; --band-blue: #CFE2F3; --band-orange: #FCE5CD;
-  --serif: 'Slide Arrows', 'Times New Roman', 'Liberation Serif', Times, 'Noto Serif CJK TC', serif;
-  --mono: 'Courier New', 'Liberation Mono', Courier, monospace;
-  --hack: Hack, 'Fira Code', 'DejaVu Sans Mono', monospace;
+  --serif: 'Slide Arrows', 'md2s Serif', 'Times New Roman', 'Liberation Serif', Times, 'Noto Serif CJK TC', serif;
+  --mono: 'md2s Mono', 'Courier New', 'Liberation Mono', Courier, monospace;
+  --hack: 'md2s Code', Hack, 'Fira Code', 'DejaVu Sans Mono', monospace;
 
   /* type: pt x 4/3 = px */
   --title-size: 32px;      /* 24pt: slide title, title page, section page, divider */

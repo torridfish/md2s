@@ -34,8 +34,9 @@ const CACHE = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.
 // ---------- theme ----------
 function theme() {
   const css = fs.readFileSync(path.join(ROOT, 'themes', 'default.css'), 'utf8');
-  // embedded, so the cover shows in --serve and in an HTML deck opened elsewhere, not only from this disk
-  return css.replaceAll('__COVER_URL__', dataUri(path.join(ROOT, 'themes', 'cover-temple-night.jpg'), 'image/jpeg'));
+  // embedded, so the cover and the fonts show in --serve and in an HTML deck opened elsewhere, not only from this disk
+  return css.replaceAll('__COVER_URL__', dataUri(path.join(ROOT, 'themes', 'cover-temple-night.jpg'), 'image/jpeg'))
+    .replace(/__FONT__([\w-]+\.woff2)/g, (_, file) => dataUri(path.join(ROOT, 'themes', 'fonts', file), 'font/woff2'));
 }
 
 // ---------- math macros from the LaTeX preamble ----------
@@ -428,7 +429,10 @@ function diagram(kind, body, scale) {
     const msg = String(e.stderr || e.message).split('\n').filter((l) => l.trim()).slice(0, 3).join(' ');
     return `<pre class="prompt" style="color:#CC0000">${kind} failed: ${msg.replace(/</g, '&lt;')}</pre>`;
   }
-  let svg = fs.readFileSync(base + '.svg', 'utf8').replace(/^[\s\S]*?(?=<svg\b)/, '').replace(/<!--[\s\S]*?-->/g, '');
+  // Graphviz lays text out with Times metrics and names Times; the bundled serif has them, so it sets the
+  // labels the same on a machine without Times
+  let svg = fs.readFileSync(base + '.svg', 'utf8').replace(/^[\s\S]*?(?=<svg\b)/, '').replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/font-family="Times,serif"/g, `font-family="'md2s Serif',Times,serif"`);
   // the natural width: Graphviz gives pt
   const pt = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)pt"/);
   const w = (pt ? (Number(pt[1]) * 4) / 3 : 0) * scale;

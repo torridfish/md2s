@@ -38,4 +38,6 @@ Your own defaults (any front matter setting) go in `~/.config/md2s/config.yaml`,
 `~/.config/md2s/macros.tex`. Figures are files you export yourself: SVG, PNG, PDF, GIF, video.
 
 The cover photo in `themes/` is the author's own. `csl/ieee.csl` is from the
-[CSL project](https://github.com/citation-style-language/styles), CC BY-SA 3.0.
+[CSL project](https://github.com/citation-style-language/styles), CC BY-SA 3.0. The fonts in
+`themes/fonts/` are subsets of Liberation Serif and Mono, Fira Code (SIL OFL 1.1) and FreeSerif (GPL with
+the font exception): see [themes/fonts/README.md](themes/fonts/README.md).

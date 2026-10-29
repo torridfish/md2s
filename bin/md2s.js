@@ -47,6 +47,7 @@ function check() {
     ['algorithm2e, standalone', tex('algorithm2e.sty') && tex('standalone.cls'), '```algo fences (tlmgr install algorithm2e standalone)'],
     ['pdftocairo (poppler)', has('pdftocairo'), 'LaTeX fences, PDF pages as pictures'],
     ['ffmpeg', has('ffmpeg'), "a video's first frame in PDF / PPTX (without it: a link to the file)"],
+    ['Noto Serif CJK TC', (() => { try { return /Noto Serif CJK/.test(execFileSync('fc-list', [':family=Noto Serif CJK TC'], { encoding: 'utf8' })); } catch { return fs.existsSync('/Library/Fonts/NotoSerifCJK.ttc'); } })(), 'only for Chinese on slides (fonts-noto-cjk)'],
   ];
   for (const [name, ok, why] of rows) console.log(`${ok ? 'ok     ' : 'missing'}  ${name.padEnd(24)} ${why}`);
   if (!fs.existsSync(MARP)) console.log(`missing  node packages            run npm install in ${ROOT}`);
