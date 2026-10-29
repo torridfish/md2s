@@ -725,7 +725,20 @@ const REFS_PER_SLIDE = 6;
 function frontMatter(src) {
   const m = src.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) return {};
-  try { return require('yaml').parse(m[1]) || {}; } catch { return {}; }
+  try { const v = require('yaml').parse(m[1]); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; } catch { return {}; }
+}
+// A deck whose first line is --- opens with front matter, as in every Markdown tool. But when what follows
+// (up to the next ---, or to the end) is not settings, the --- was meant as a slide break, and Marp would
+// swallow the slides as YAML (## is a YAML comment): the --- is dropped, so they stay slides.
+function leadingRule(src) {
+  const m = src.match(/^---[ \t]*\r?\n([\s\S]*?)(?:\r?\n---[ \t]*(?:\r?\n|$)|$)/);
+  if (!m || !m[1].trim()) return src;
+  let v;
+  try { v = require('yaml').parse(m[1]); } catch { v = null; }
+  const settingsLike = v && typeof v === 'object' && !Array.isArray(v) && !/^#{2,6}\s/m.test(m[1]);
+  if (settingsLike) return src;
+  warn('the deck starts with --- but what follows is not front matter (key: value lines); md2s reads it as slides');
+  return src.replace(/^---[ \t]*\r?\n/, '');
 }
 // A deck's settings: md2s's defaults, then the user's ~/.config/md2s/config.yaml, then the front matter.
 const DEFAULTS = { 'toc-standalone': ['TODO', 'Appendix', 'References'] };
@@ -1134,6 +1147,7 @@ module.exports = ({ marp }) => {
   const parse = marp.markdown.parse.bind(marp.markdown);
   // the deck's front matter reaches the renderers through env.md2s (line-numbers …)
   marp.markdown.parse = (src, env = {}) => {
+    src = leadingRule(src);
     env.md2s = settings(src);
     return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
   };
