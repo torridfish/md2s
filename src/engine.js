@@ -357,6 +357,68 @@ function spansPastAttrs(md) {
   md.core.ruler.after('curly_attributes', 'rs_spans_show', rename(show));
 }
 
+// Two tables one blank line apart: multimd-table's multibody (kept for the {.settings} line under a table)
+// reads the second as a row group of the first, its header as a row and its --- row as cells. A row group
+// whose rows lead to a row of --- cells is a table of its own: it is closed off there, the rows above the
+// --- row become its header, and the colons in that row give its columns' alignment.
+const DELIMITER_CELL = /^:?-+:?$/;
+function splitTables(md) {
+  md.core.ruler.push('rs_split_tables', (state) => {
+    const toks = state.tokens;
+    const out = [];
+    const make = (type, tag, nesting, level) => Object.assign(new state.Token(type, tag, nesting), { level, block: true });
+    let table = null;   // the table being read; a class from a {.x} line under it belongs to the last table split off
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (t.type === 'table_open') table = t;
+      if (t.type !== 'tbody_open') { out.push(t); continue; }
+      let end = i;
+      while (toks[end].type !== 'tbody_close') end++;
+      const rows = [];   // { open, close, cells: [text] }
+      for (let j = i; j < end; j++) {
+        if (toks[j].type === 'tr_open') rows.push({ open: j, cells: [] });
+        else if (toks[j].type === 'tr_close') rows[rows.length - 1].close = j;
+        else if (toks[j].type === 'td_open') rows[rows.length - 1].cells.push(toks[j + 1].content.trim());
+      }
+      const d = rows.findIndex((r) => r.cells.length && r.cells.every((c) => DELIMITER_CELL.test(c)));
+      if (d < 1) { out.push(t); continue; }
+      const align = rows[d].cells.map((c) => (c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : c.startsWith(':') ? 'left' : ''));
+      // a cell's column skips the columns a ^^ cell above still covers
+      let covered = [];
+      const aligned = (from, to, head) => {
+        for (let r = from; r < to; r++) {
+          const next = covered.map((n) => Math.max(0, n - 1));
+          let col = 0;
+          for (let j = rows[r].open; j <= rows[r].close; j++) {
+            const c = toks[j];
+            if (head && /^td_(open|close)$/.test(c.type)) { c.type = c.type.replace('td', 'th'); c.tag = 'th'; }
+            if (c.type === 'td_open' || c.type === 'th_open') {
+              while (covered[col] > 0) col++;
+              if (align[col] && !c.attrGet('style')) c.attrSet('style', `text-align:${align[col]}`);
+              const span = Number(c.attrGet('colspan')) || 1;
+              for (let k = 0; k < span; k++) next[col + k] = (Number(c.attrGet('rowspan')) || 1) - 1;
+              col += span;
+            }
+            out.push(c);
+          }
+          covered = next;
+        }
+      };
+      // the previous row group (if any) already closed: end the table, open the next with a header
+      const lv = t.level - 1;
+      const open = make('table_open', 'table', 1, lv);
+      if (table && table.attrs) { open.attrs = table.attrs; table.attrs = null; }
+      table = open;
+      out.push(make('table_close', 'table', -1, lv), open, make('thead_open', 'thead', 1, t.level));
+      aligned(0, d, true);
+      out.push(make('thead_close', 'thead', -1, t.level), t);
+      aligned(d + 1, rows.length, false);
+      i = end - 1;   // the group's tbody_close comes next, as it was
+    }
+    state.tokens = out;
+  });
+}
+
 // A `role` column gives each row its class (ref / a / b tint it, hl highlights, mute greys out, sep rules it
 // off; any other word is a class too) and is not shown.
 function tables(md) {
@@ -384,14 +446,16 @@ function tables(md) {
       const ri = rows[0].cells.findIndex((c) => text(c).toLowerCase() === 'role');
       if (ri >= 0) rows.forEach((r, k) => {
         const c = r.cells[ri];
+        if (!c) return;   // a row whose cells a ^^ above shifted
         if (k > 0 && text(c)) toks[r.open].attrJoin('class', text(c));
         for (const x of [c.open, c.inline, c.close]) drop.add(x);
       });
       if ((toks[i].attrGet('class') || '').includes('settings')) {
-        const body = rows.slice(1);
+        // body rows are the td rows (a header may have two); a column a ^^ or || leaves a row short of counts as long
+        const body = rows.filter((r) => r.cells.length && toks[r.cells[0].open].type === 'td_open');
         rows[0].cells.forEach((_, col) => {
           if (col === ri || !body.length) return;
-          if (body.every((r) => text(r.cells[col]).length <= 3)) for (const r of body) toks[r.cells[col].open].attrJoin('class', 'c');
+          if (body.every((r) => r.cells[col] && text(r.cells[col]).length <= 3)) for (const r of body) toks[r.cells[col].open].attrJoin('class', 'c');
         });
       }
       i = end;
@@ -571,8 +635,11 @@ function repeatTitles(src) {
   const nextLine = (i) => { let j = i + 1; while (j < lines.length && !lines[j].trim()) j++; return lines[j] || ''; };
   eachLine(lines, (l, i) => {
     if (/^\s*(---|\*\*\*|___)\s*$/.test(l)) {
-      hasH2 = false; seenH3 = false;
       const next = nextLine(i);
+      // a --- at the end of the deck, or right before another, would open a slide with nothing on it
+      // (and, after a subsection, an empty continuation numbered as a part): it is dropped
+      if (!next.trim() || /^\s*(---|\*\*\*|___)\s*$/.test(next)) { edits.push([i, 1, []]); return; }
+      hasH2 = false; seenH3 = false;
       // with headingDivider a # or ## breaks the slide itself: the --- in front would leave an empty slide
       if (divided && /^#{1,2}\s/.test(next)) { edits.push([i, 1, []]); return; }
       if (divided && h2 && /^###\s/.test(next)) { edits.push([i, 1, [`## ${h2}`]]); hasH2 = true; return; }
@@ -1063,6 +1130,7 @@ module.exports = ({ marp }) => {
     .use(callouts)
     .use(mathMacros)
     .use(figures)
+    .use(splitTables)
     .use(tables)
     .use(fences)
     .use(marks)
