@@ -61,6 +61,22 @@ const streams = [...pdf.matchAll(/stream\r?\n([\s\S]*?)endstream/g)].map((m) => 
 const pages = (`${pdf}\n${streams.join('\n')}`.match(/\/Type\s*\/Page\b(?!s)/g) || []).length;
 check(pages === slides, `PDF has one page per slide (${pages} pages, ${slides} slides)`);
 
+// the layout check (the gallery builds above must have drawn no warning at all): test/overflow.md, one case
+// per slide, gives exactly these warnings, and none for the slide that fits or the two-line title
+const r = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(__dirname, 'overflow.md'), '--html', '-o', out], { encoding: 'utf8' });
+const got = r.stderr.split('\n').filter((l) => /^md2s: slide/.test(l));
+const expect = [
+  [2, /text runs \d+px below the body, off the slide/],
+  [3, /text runs \d+px past the right margin, the slide cuts it off/],
+  [4, /a table runs \d+px past the right margin/],
+  [4, /a table runs \d+px past the left margin/],
+  [6, /the title takes 3 lines/],
+];
+for (const [slide, re] of expect) {
+  check(got.some((l) => l.startsWith(`md2s: slide ${slide} `) && re.test(l)), `layout check warns on slide ${slide}: ${re.source.replace(/\\d\+/g, 'N').replace(/\\/g, '')}`);
+}
+check(got.length === expect.length, `layout check warns nowhere else (${got.length} warnings, ${expect.length} expected)`);
+
 fs.rmSync(out, { recursive: true, force: true });
 if (problems.length) {
   console.log(`\n${problems.length} check(s) failed. md2s --check shows which tools are missing; md2s setup installs them.`);

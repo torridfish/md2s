@@ -66,6 +66,15 @@ function useLocalTools() {
   }
 }
 const browser = () => !!process.env.CHROME_PATH || systemBrowser();
+// the Chrome, Chromium or Edge that md2s's layout check drives (it needs one of these, not Firefox)
+function chromium() {
+  if (process.env.CHROME_PATH && !/firefox/i.test(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
+  for (const cmd of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable']) {
+    const p = which(cmd);
+    if (p) return p;
+  }
+  return ['Google Chrome', 'Chromium', 'Microsoft Edge'].map((app) => `/Applications/${app}.app/Contents/MacOS/${app}`).find((p) => fs.existsSync(p)) || null;
+}
 const cjk = () => {
   try { return /Noto Serif CJK/.test(execFileSync('fc-list', [':family=Noto Serif CJK TC'], { encoding: 'utf8', stdio: 'pipe' })); }
   catch { return ['/Library/Fonts', FONTS].some((d) => fs.existsSync(d) && fs.readdirSync(d).some((f) => /^NotoSerifCJK/i.test(f))); }
@@ -198,4 +207,4 @@ async function setup(root, args) {
   if (failed.length) { console.log(`\nFailed:\n${failed.map((f) => `  ${f}`).join('\n')}`); process.exitCode = 1; }
 }
 
-module.exports = { useLocalTools, browser, check, setup };
+module.exports = { useLocalTools, browser, chromium, check, setup };

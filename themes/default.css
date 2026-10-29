@@ -99,10 +99,30 @@ section h3 {
   margin: 0; padding-left: var(--header-inset); box-sizing: border-box;
   font: 400 var(--subtitle-size)/var(--leading) var(--serif); color: var(--amber); white-space: nowrap; overflow: hidden;
 }
+/* A slide's own title and subtitle are in the slide's flow, padded so that one line of each sits exactly on
+   the anchors above (title in title-top … +title-height, subtitle centred in its band, the line at rule-top);
+   a title or subtitle too long for one line wraps, and its second line moves the line and the body down
+   (md2s warns when a heading takes a third line, or the body no longer fits). */
+/* Each box has a whole-pixel min-height, so one line lands on the anchors to the pixel; the padding keeps
+   the same room above and below a second line. */
+section:has(> h2) { padding-top: var(--title-top); }
+section > h2, section:has(> h2) > h3 { position: relative; inset: auto; transform: none; width: auto; white-space: normal; overflow: visible; }
+section > h2 { min-height: var(--title-height); padding-top: calc(var(--title-height) - 1lh); }
+section > h2 + h3 {
+  min-height: calc(var(--body-top) - var(--subtitle-top));
+  padding-top: calc(var(--subtitle-height) / 2 - 0.5lh);
+  /* 0.05px short, so the rounding of padding and line height never beats the min-height by 1/64px */
+  padding-bottom: calc(var(--subtitle-height) / 2 - 0.5lh + var(--body-top) - var(--rule-top) - 0.05px);
+}
 /* a slide with a title and no subtitle (the contents slide) sets its title just above the line */
-section:not(:has(> h3)) > h2 { bottom: calc(540px - var(--rule-top) + var(--title-rule-gap)); }
-section:has(> h2)::before {
-  content: ''; position: absolute; left: var(--margin-x); top: var(--rule-top); width: calc(960px - 2 * var(--margin-x)); border-top: 1.33px solid var(--ink);
+section > h2:not(:has(+ h3)) {
+  min-height: calc(var(--body-top) - var(--title-top));
+  padding-top: calc(var(--rule-top) - var(--title-rule-gap) - var(--title-top) - 1lh);
+  padding-bottom: calc(var(--title-rule-gap) + var(--body-top) - var(--rule-top) - 0.05px);
+}
+/* the line under the header, at rule-top for a one-line header; the body follows at body-top */
+section > h2:not(:has(+ h3))::after, section > h2 + h3::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: calc(var(--body-top) - var(--rule-top) - 1.33px); border-top: 1.33px solid var(--ink);
 }
 
 /* ---------- lead: the claim or question under the line ---------- */

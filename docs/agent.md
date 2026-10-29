@@ -13,6 +13,7 @@ md2s deck.md --html                # one HTML file to present from (keys below),
 md2s deck.md --serve               # present at http://localhost:8080/deck.md (--port N), re-rendered on reload
 md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
+md2s deck.md --no-check            # skip the layout check that warns about overflow (see Notes)
 md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
 md2s deck.md --thanks-text "Questions?"   # the same page with other words
 md2s --check                       # which tools (Chrome, TeX, ffmpeg …) are installed
@@ -46,6 +47,8 @@ deck go in `~/.config/md2s/config.yaml` with the same keys; a deck's front matte
 Headings have three jobs: `#` alone is a **section page**, a chapter of the talk (usually the question its
 slides answer); `##` is the slide's **category** (Setup, Experiment, Analysis, TODO …), a label that repeats
 rather than a level; `###` is the slide's **title**, its one message. The contents slide is built on that.
+A `##` or `###` too long for one line wraps to a second, and the line under the header and the body move
+down to make room (the body loses that height); a third line draws a warning.
 
 ## Citations
 
@@ -293,5 +296,9 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
 - Render caches: TeX, diagram and media renders live in `~/.cache/md2s/`, keyed by content.
 - Citations and footnotes are separate: a citation `[@key]` points into the bibliography and the References slides; a footnote `[^x]` is a note at the foot of its slide.
 - Footnotes are numbered 1, 2 per slide in the order they are cited, marked by an italic superscript number in the text and at the foot (square brackets are left to citations); the mark in the text links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
-- Marp does not warn about overflow: read the PDF pages before handing a deck over.
+- After each build (not `--watch`; `--no-check` skips it) md2s lays the deck out again in the browser and
+  warns, by slide, about anything the PDF would lose or crowd: a body taller than its box (into the footnote
+  band, or cut off at the bottom), a line, table or picture past the margins or the slide's edge, a heading
+  painted over the header, a title or subtitle on a third line. Fix each one in the Markdown (split the
+  slide with `---`, shorten, pick a `_layout`). The check cannot judge looks: still read the pages.
 - Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

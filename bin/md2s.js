@@ -24,6 +24,8 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --pptx --scale 4      PPTX / PNG pictures at 4x the 960x540 canvas (default 3)
   md2s deck.md --thanks              close with a "Thanks for listening." page (--thanks-text T)
   md2s deck.md --pdf -o out/         write into another folder
+  md2s deck.md --no-check            skip the layout check (after every build but --watch, md2s warns
+                                     about content cut off or over the margins, and titles over two lines)
 
   md2s --skill                       the Markdown syntax, written for an agent (or you)
   md2s --check                       which tools (Chrome, TeX, ffmpeg …) are present
@@ -47,13 +49,14 @@ const args = process.argv.slice(2);
 if (args[0] === 'tex2img') process.exit(spawnSync(path.join(ROOT, 'scripts', 'tex2img.sh'), args.slice(1), { stdio: 'inherit' }).status ?? 1);
 if (args[0] === 'setup') { tools.setup(ROOT, args.slice(1)); return; }
 
-let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '';
+let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '', layoutCheck = true;
 const formats = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   const value = () => { if (i + 1 >= args.length) fail(`${a} needs a value`); return args[++i]; };
   if (['--pdf', '--pptx', '--html', '--png'].includes(a)) formats.push(a.slice(2));
   else if (a === '--watch' || a === '-w') watch = true;
+  else if (a === '--no-check') layoutCheck = false;
   else if (a === '--serve') serve = true;
   else if (a === '--port') port = value();
   else if (a === '--scale') scale = value();
@@ -97,4 +100,8 @@ const stem = path.basename(src).replace(/\.[^.]+$/, '');
 for (const f of formats) {
   const flag = f === 'png' ? ['--images', 'png'] : [`--${f}`];
   marp([...flag, ...(scale ? ['--image-scale', scale] : []), ...(watch ? ['--watch'] : []), '-o', path.join(out, `${stem}.${f}`), '--', src], f);
+}
+// what Chrome cut off or drew over the margins, slide by slide (src/layout.js); --watch rebuilds without it
+if (layoutCheck && !watch) {
+  spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
 }
