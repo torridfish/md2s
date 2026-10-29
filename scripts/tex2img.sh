@@ -14,7 +14,9 @@
 # Placement: px/dpi inches is 1:1 with 12pt body text.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRE="$HERE/../assets/tex"
+PRE="$HERE/../tex"
+# the user's own macros (md2s reads the same file for KaTeX)
+MACROS="${XDG_CONFIG_HOME:-$HOME/.config}/md2s/macros.tex"
 mode=""; src=""; out=""; dpi=800; svg=1; transp=1; pre_override=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -39,7 +41,7 @@ case "$mode" in
 esac
 if [ -n "$pre_override" ]; then pre="$pre_override"
 elif [ "$mode" = algo ]; then pre="$PRE/preamble-algo.tex"; else pre="$PRE/preamble-math.tex"; fi
-{ cat "$pre"; printf '\n\\begin{document}\n%s\n\\end{document}\n' "$body"; } > "$work/fig.tex"
+{ cat "$pre"; [ -f "$MACROS" ] && cat "$MACROS"; printf '\n\\begin{document}\n%s\n\\end{document}\n' "$body"; } > "$work/fig.tex"
 cp "$work/fig.tex" "$out.tex"
 ( cd "$work" && latex -interaction=batchmode -halt-on-error fig.tex >/dev/null 2>&1 ) || { echo "latex failed; see $out.log" >&2; cp "$work/fig.log" "$out.log"; exit 1; }
 ( cd "$work" && pdflatex -interaction=batchmode -halt-on-error fig.tex >/dev/null 2>&1 )

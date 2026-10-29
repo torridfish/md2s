@@ -1,13 +1,13 @@
 ---
 marp: true
-theme: slide-maker
+theme: default
 paginate: true
 headingDivider: 2
 toc: true
 ---
 
 <!-- slide-maker gallery: one slide per slide type and component. Render it after every theme change
-     (scripts/slides.sh assets/marp/gallery.md --pdf -o /tmp/gallery/) and read every page. -->
+     (md2s examples/gallery.md --pdf -o out/) and read every page. -->
 
 # Progress Report
 
@@ -41,15 +41,15 @@ Plain paragraph with `a/config/key`, a [link](https://example.com), ==WIP==, [4-
 ## Experiment
 ### One figure with a run label (1:1, centred)
 
-![](../diagram-kit.png "4-01")
+![](diagram-kit.png "4-01")
 
 ### Two figures in a row (the ## is repeated from the slide before)
 
-![](../diagram-kit.png "4-02") ![](../diagram-kit.png "4-03")
+![](diagram-kit.png "4-02") ![](diagram-kit.png "4-03")
 
 ### A picture and a GIF (the GIF moves in --html, a PDF shows its first frame)
 
-![](../diagram-kit.png "png") ![](../demo.gif "gif")
+![](diagram-kit.png "png") ![](demo.gif "gif")
 
 ## Setup
 ### Display math and an algorithm
@@ -192,7 +192,7 @@ Logical consistency: currently no good idea about this part.
 :::
 
 ::: b
-![](../diagram-kit.png "4-04")
+![](diagram-kit.png "4-04")
 :::
 
 ### Custom areas, centred vertically

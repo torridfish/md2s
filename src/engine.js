@@ -1,6 +1,6 @@
-// Marp engine for slide-maker decks (used by scripts/marp.config.js). On top of Marp it adds:
-//   - the slide-maker theme, with the cover photo resolved to this skill's copy
-//   - the math preamble's macros (\LLM, \Lloss{LM}, \tok{OBJ}, \argmax …) expanded inside $…$ / $$…$$;
+// md2s's Marp engine (loaded by src/config.js, which bin/md2s.js hands to marp-cli). On top of Marp it adds:
+//   - the default theme (themes/default.css), with the cover photo resolved to the package's copy
+//   - the math preamble's macros (tex/preamble-math.tex, plus ~/.config/md2s/macros.tex) expanded in $…$ / $$…$$;
 //     ```math fences as display math; equation / align / gather numbered (1), (2) … across the deck
 //   - footnotes numbered [1], [2] per slide and set at the foot of the slide that cites them; a citation is a
 //     superscript [1] linking to its footnote
@@ -23,20 +23,22 @@ const crypto = require('crypto');
 const { pathToFileURL } = require('url');
 const { execFileSync } = require('child_process');
 
-const SKILL = path.join(__dirname, '..');
-const TEX = path.join(SKILL, 'assets', 'tex');
+const ROOT = path.join(__dirname, '..');
+const TEX = path.join(ROOT, 'tex');
+// the user's own \newcommand / \DeclareMathOperator lines, for KaTeX and for LaTeX-rendered fences alike
+const USER_MACROS = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'md2s', 'macros.tex');
+const userMacros = () => (fs.existsSync(USER_MACROS) ? fs.readFileSync(USER_MACROS, 'utf8') : '');
 const DPI = 800;
-const CACHE = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'slide-maker', 'tex');
+const CACHE = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'md2s');
 
 // ---------- theme ----------
 function theme() {
-  const css = fs.readFileSync(path.join(SKILL, 'assets', 'marp', 'slide-maker.css'), 'utf8');
-  return css.replaceAll('__COVER_URL__', pathToFileURL(path.join(SKILL, 'assets', 'cover-temple-night.jpg')).href);
+  const css = fs.readFileSync(path.join(ROOT, 'themes', 'default.css'), 'utf8');
+  return css.replaceAll('__COVER_URL__', pathToFileURL(path.join(ROOT, 'themes', 'cover-temple-night.jpg')).href);
 }
 
 // ---------- math macros from the LaTeX preamble ----------
-function readMacros(file) {
-  const src = fs.readFileSync(file, 'utf8');
+function readMacros(src) {
   const macros = {};
   for (const m of src.matchAll(/\\newcommand\{\\(\w+)\}(?:\[(\d)\])?\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g)) macros[m[1]] = { n: Number(m[2] || 0), body: m[3] };
   for (const m of src.matchAll(/\\DeclareMathOperator(\*?)\{\\(\w+)\}\{([^}]*)\}/g)) macros[m[2]] = { n: 0, body: `\\operatorname${m[1]}{${m[3]}}` };
@@ -83,7 +85,7 @@ function numberEquations(tex, next) {
   });
 }
 function mathMacros(md) {
-  const macros = readMacros(path.join(TEX, 'preamble-math.tex'));
+  const macros = readMacros(fs.readFileSync(path.join(TEX, 'preamble-math.tex'), 'utf8') + '\n' + userMacros());
   md.core.ruler.after('inline', 'rs_math_macros', (state) => {
     let n = 0;
     const next = () => ++n;
@@ -116,7 +118,7 @@ function imageSize(file) {
 /** 1:1 width in CSS px for a local figure (exports are 2x: 192 px per inch on a 96 px/in canvas). */
 function naturalSize(src) {
   if (!src || /^[a-z]+:/i.test(src)) return null;
-  const size = imageSize(path.resolve(process.env.RS_DECK_DIR || process.cwd(), decodeURI(src)));
+  const size = imageSize(path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(src)));
   return size ? { w: size.w / 2, h: size.h / 2 } : null;
 }
 
@@ -126,7 +128,7 @@ function naturalSize(src) {
 // HTML, and a PDF / PPTX shows its first frame.
 const VIDEO = /\.(mp4|webm|mov|m4v|ogv)$/i;
 function cached(kind, file, extra, ext, make) {
-  const abs = path.resolve(process.env.RS_DECK_DIR || process.cwd(), decodeURI(file));
+  const abs = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(file));
   const stat = fs.statSync(abs);
   const h = crypto.createHash('sha1').update([kind, abs, stat.mtimeMs, extra].join('\0')).digest('hex').slice(0, 12);
   const out = path.join(CACHE, `${kind}-${h}.${ext}`);
@@ -186,7 +188,7 @@ function figures(md) {
     let html = image(tokens, idx, options, env, self);
     if (t.meta && t.meta.video) {
       const esc = md.utils.escapeHtml;
-      html = process.env.RS_FORMAT === 'html'
+      html = process.env.MD2S_FORMAT === 'html'
         ? `<video src="${esc(t.meta.video)}" poster="${esc(t.attrGet('src'))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
         : `<a class="video" href="${esc(t.meta.video)}">${html}</a>`;
     }
@@ -238,14 +240,14 @@ function tables(md) {
 
 // ---------- fences ----------
 function texImage(kind, body, scale) {
-  const pre = fs.readFileSync(path.join(TEX, kind === 'algo' ? 'preamble-algo.tex' : 'preamble-math.tex'), 'utf8');
+  const pre = fs.readFileSync(path.join(TEX, kind === 'algo' ? 'preamble-algo.tex' : 'preamble-math.tex'), 'utf8') + userMacros();
   const h = crypto.createHash('sha1').update([kind, body, pre, DPI].join('\0')).digest('hex').slice(0, 12);
   const base = path.join(CACHE, `${kind}-${h}`);
   if (!fs.existsSync(base + '.png')) {
     fs.mkdirSync(CACHE, { recursive: true });
     fs.writeFileSync(base + '.body.tex', body + '\n');
     try {
-      execFileSync(path.join(__dirname, 'tex2img.sh'), [kind === 'algo' ? '--algo' : '--body', base + '.body.tex', '-o', base, '--dpi', String(DPI), '--no-svg'], { stdio: 'pipe' });
+      execFileSync(path.join(ROOT, 'scripts', 'tex2img.sh'), [kind === 'algo' ? '--algo' : '--body', base + '.body.tex', '-o', base, '--dpi', String(DPI), '--no-svg'], { stdio: 'pipe' });
     } catch (e) {
       const log = fs.existsSync(base + '.log') ? fs.readFileSync(base + '.log', 'utf8').split('\n').filter((l) => /^!|^l\.\d+/.test(l)).slice(0, 4).join(' ') : String(e.message);
       return `<pre class="prompt" style="color:#CC0000">LaTeX failed (${kind}): ${log.replace(/</g, '&lt;')}</pre>`;
@@ -307,7 +309,7 @@ function diagram(kind, body, scale) {
       } else {
         fs.writeFileSync(base + '.mmd', body);
         fs.writeFileSync(base + '.puppeteer.json', JSON.stringify({ executablePath: chromePath(), args: ['--no-sandbox'] }));
-        execFileSync(path.join(__dirname, 'node_modules', '.bin', 'mmdc'), ['-q', '-i', base + '.mmd', '-o', base + '.svg', '-p', base + '.puppeteer.json',
+        execFileSync(path.join(ROOT, 'node_modules', '.bin', 'mmdc'), ['-q', '-i', base + '.mmd', '-o', base + '.svg', '-p', base + '.puppeteer.json',
           '-c', path.join(__dirname, 'mermaid.json'), '-b', 'transparent', '-I', `mermaid-${h}`], { stdio: 'pipe' });
       }
     }
@@ -712,16 +714,17 @@ function slideTypes(md) {
 }
 
 module.exports = ({ marp }) => {
-  marp.themeSet.add(theme());
-  // slides.sh --thanks: close the deck with a thanks page (the title-page layout); off by default
+  // replaces Marp's own default theme, both by name (theme: default) and for a deck with no theme line
+  marp.themeSet.default = marp.themeSet.add(theme());
+  // md2s --thanks: close the deck with a thanks page (the title-page layout); off by default
   // with headingDivider the # line starts its own slide; a --- as well would leave an empty slide between
-  const thanks = (src) => (process.env.RS_THANKS ? `${src.replace(/\s*$/, '')}\n\n${DIVIDED.test(src) ? '' : '---\n\n'}# ${process.env.RS_THANKS}\n` : src);
+  const thanks = (src) => (process.env.MD2S_THANKS ? `${src.replace(/\s*$/, '')}\n\n${DIVIDED.test(src) ? '' : '---\n\n'}# ${process.env.MD2S_THANKS}\n` : src);
   const parse = marp.markdown.parse.bind(marp.markdown);
   marp.markdown.parse = (src, env) => parse(thanks(insertToc(repeatTitles(src))), env);
-  // slides.sh --html: the presenting tools (laser, pen, click to turn) go in after the slides
-  if (process.env.RS_FORMAT === 'html') {
+  // md2s --html / --serve: the presenting tools (laser, pen, click to turn) go in after the slides
+  if (process.env.MD2S_FORMAT === 'html') {
     const render = marp.render.bind(marp);
-    const script = fs.readFileSync(path.join(SKILL, 'assets', 'marp', 'present.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
+    const script = fs.readFileSync(path.join(__dirname, 'present.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
     marp.render = (...args) => { const out = render(...args); out.html += `<script>${script}</script>`; return out; };
   }
   return marp

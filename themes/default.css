@@ -1,5 +1,5 @@
-/* @theme slide-maker */
-/* slide-maker theme for Marp. The canvas is a 10 x 5.625 in slide at 96 px/in; every anchor and size is a
+/* @theme default */
+/* md2s's default theme for Marp. The canvas is a 10 x 5.625 in slide at 96 px/in; every anchor and size is a
    variable in :root below, so moving the header, the body box or the footnote band is a change there.
    All text is Times New Roman at three sizes (24pt title, 14pt subtitle, 11pt lead and body), 9pt tables,
    8pt footnotes, 30pt on the title page; code stays monospace and math is KaTeX. The engine (scripts/marp-engine.js) gives every

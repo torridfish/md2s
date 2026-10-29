@@ -1,0 +1,23 @@
+{
+  "name": "@torridfish/md2s",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Stop making slides, do research: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML) on Marp.",
+  "license": "UNLICENSED",
+  "bin": { "md2s": "bin/md2s.js" },
+  "files": ["bin", "src", "themes", "tex", "scripts", "docs"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "gallery": "node bin/md2s.js examples/gallery.md --pdf -o out/"
+  },
+  "dependencies": {
+    "@hpcc-js/wasm-graphviz": "^1.30.0",
+    "@marp-team/marp-cli": "^4.5.1",
+    "@mermaid-js/mermaid-cli": "^12.0.0",
+    "markdown-it-attrs": "^4.5.0",
+    "markdown-it-bracketed-spans": "^1.0.3",
+    "markdown-it-container": "^4.0.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-mark": "^4.0.0"
+  }
+}

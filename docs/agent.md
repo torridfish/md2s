@@ -1,18 +1,22 @@
-# Marp decks
+# md2s
 
-A deck is one Markdown file rendered by Marp in the `slide-maker` theme
-(`assets/marp/slide-maker.css`, registered by `scripts/marp-engine.js`).
+Stop making slides, do research. md2s turns one plain Markdown file into academic slides that read well
+and all look alike: a vector PDF, a PPTX of pictures, or an HTML deck to present from. It is Marp
+underneath, plus what research talks need: per-slide footnotes, numbered equations, a contents slide,
+layouts without CSS, callouts, diagrams, code, and media. You write the content; the theme decides the look.
 
 ```bash
-<skill-dir>/scripts/slides.sh deck.md                  # deck.pdf (vector)
-<skill-dir>/scripts/slides.sh deck.md --pdf --pptx     # + deck.pptx, one 2880x1620 picture per slide
-<skill-dir>/scripts/slides.sh deck.md --pptx --scale 4  # pictures at 4x the canvas (3840x2160); default 3, PDF is vector
-<skill-dir>/scripts/slides.sh deck.md --html           # one HTML file to present from (keys below)
-<skill-dir>/scripts/slides.sh deck.md --serve          # present at http://localhost:8080/deck.md (--port N), re-rendered on reload
-<skill-dir>/scripts/slides.sh deck.md --pdf --watch    # rebuild on every save
-<skill-dir>/scripts/slides.sh deck.md --pptx -o out/   # another output folder
-<skill-dir>/scripts/slides.sh deck.md --thanks         # append a "Thanks for listening." page (off by default)
-<skill-dir>/scripts/slides.sh deck.md --thanks-text "Questions?"   # the same page with other words
+md2s deck.md                       # deck.pdf next to deck.md (vector)
+md2s deck.md --pdf --pptx          # + deck.pptx, one 2880x1620 picture per slide
+md2s deck.md --pptx --scale 4      # pictures at 4x the canvas (3840x2160); default 3, PDF is vector
+md2s deck.md --html                # one HTML file to present from (keys below)
+md2s deck.md --serve               # present at http://localhost:8080/deck.md (--port N), re-rendered on reload
+md2s deck.md --pdf --watch         # rebuild on every save
+md2s deck.md --pptx -o out/        # another output folder
+md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
+md2s deck.md --thanks-text "Questions?"   # the same page with other words
+md2s --check                       # which optional tools (TeX, ffmpeg, draw.io …) are installed
+md2s tex2img --display 'E = mc^2' -o eq    # a standalone formula picture; md2s drawio f.drawio for draw.io
 ```
 
 ## Front matter
@@ -20,7 +24,7 @@ A deck is one Markdown file rendered by Marp in the `slide-maker` theme
 ```yaml
 ---
 marp: true
-theme: slide-maker
+theme: default        # md2s's theme (also used when the line is left out)
 paginate: true        # slide number at the bottom right of every slide
 headingDivider: 2     # every # and ## starts a slide, so no --- is needed
 toc: true             # a contents slide after the first one ("Outline"; `toc: Contents` names it)
@@ -84,7 +88,7 @@ Oct. 31, 2026
 
 ```
 
-A thanks page is a build option, not part of the Markdown: `slides.sh --thanks` appends
+A thanks page is a build option, not part of the Markdown: `md2s --thanks` appends
 `# Thanks for listening.`, and a last slide holding only a `#` line takes the title-page layout.
 (Writing that line by hand works the same way.)
 
@@ -154,11 +158,11 @@ summary, question) purple, `WARNING` (attention, todo) amber, `CAUTION` (danger,
 | `![](anim.gif)` | moves in `--html`; a PDF or PPTX shows its first frame |
 | `![](clip.mp4)` (webm, mov) | a player in `--html`; a PDF or PPTX shows its first frame (ffmpeg) with a play mark, linked to the file |
 
-Diagrams and frames are cached in `~/.cache/slide-maker/tex/`.
+Diagrams and frames are cached in `~/.cache/md2s/`.
 
 ## Presenting from HTML
 
-`slides.sh deck.md --html` writes one HTML file; open it in a browser. `slides.sh deck.md --serve` presents
+`md2s deck.md --html` writes one HTML file; open it in a browser. `md2s deck.md --serve` presents
 the same from Marp's server instead (the deck's folder at `http://localhost:8080/`, rendered again on every
 reload, so edits show up at once). Open from a file, Marp's overview cannot close again (its frame cannot
 talk to the page under `file://`); over `--serve` it can. The server listens on every network interface,
@@ -184,8 +188,8 @@ so people on the same network can open the deck while it runs.
 | `![w:300](f.png)` | Marp's size keywords still work for one picture |
 | `$x_i$`, `$$ … $$`, ```` ```math ```` | KaTeX, Computer Modern, selectable and searchable in the PDF; inline math at the body size, display math centred at 1.2x the body |
 | `\begin{equation} … \end{equation}` inside `$$` | numbered (1), (2) … in order through the deck, the number at the right edge; `align` / `gather` number each row (`\notag` skips one), the starred forms and plain `$$` are unnumbered, `\tag{A.1}` sets a number by hand |
-| `\LLM`, `\Lloss{LM}`, `\tok{OBJ}`, `\argmax` … | expanded from `assets/tex/preamble-math.tex`; add a `\newcommand` there to add one |
-| ` ```algo ` | an `algorithm2e` body rendered by `tex2img.sh` (800 dpi, transparent; `{scale=1.3}` resizes) |
+| your own macros | `\newcommand` / `\DeclareMathOperator` lines in `~/.config/md2s/macros.tex` work in `$…$`, `$$…$$` and LaTeX-rendered fences; `\argmax`, `\argmin` are built in |
+| ` ```algo ` | an `algorithm2e` body rendered with the local TeX Live (800 dpi, transparent; `{scale=1.3}` resizes) |
 | ` ```latex {.render} ` | any LaTeX body rendered the same way |
 | ` ```python ` (any language) | monokai on a dark rounded box with line numbers; a box as wide as its code, centred, at 9pt (smaller only when the longest line would not fit); the numbers are a separate column, so selecting or copying code (in the PDF too) leaves them out |
 | ` ```python {path="human_eval/execution.py" start=98} ` | the same, with the path in white at the top of the box (a label only: nothing is read from it) and numbering from 98 |
@@ -214,7 +218,7 @@ table { font-size: 10.67px; }           /* an 8pt table on a crowded slide */
 
 ## Layout variables
 
-Every anchor is a CSS variable in `:root` at the top of `assets/marp/slide-maker.css` (px on the
+Every anchor is a CSS variable in `:root` at the top of md2s's `themes/default.css` (px on the
 960 x 540 canvas); change the theme there, not per slide. One slide can also override them:
 `<style scoped>section { --rule-top: 84px; --body-top: 88px; }</style>`.
 
@@ -244,7 +248,7 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
 
 ## Notes
 
-- Render caches: TeX renders live in `~/.cache/slide-maker/tex/`, keyed by content.
+- Render caches: TeX, diagram and media renders live in `~/.cache/md2s/`, keyed by content.
 - Footnotes are numbered [1], [2] per slide in the order they are cited; a citation is a superscript [1] that links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
 - Marp does not warn about overflow: read the PDF pages before handing a deck over.
-- Local images need no flag: `slides.sh` runs Marp with local file access on.
+- Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

@@ -3,7 +3,7 @@
 #   drawio-export.sh figure.drawio                 # -> figure.png next to it
 #   drawio-export.sh figure.drawio -o out/fig      # -> out/fig.png
 #   drawio-export.sh figure.drawio --page 2 --svg  # page index (0-based) and an SVG too
-# Keep the .drawio beside the export: the design system wants both in assets/Diagrams/.
+# Keep the .drawio beside the export.
 set -euo pipefail
 src=""; out=""; page=""; svg=0; scale=2; border=16
 while [ $# -gt 0 ]; do
