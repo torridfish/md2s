@@ -1,7 +1,7 @@
 {
   "name": "@torridfish/md2s",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Stop making slides, do research: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML) on Marp.",
   "license": "MIT",
   "bin": {
@@ -14,7 +14,8 @@
     "themes",
     "tex",
     "scripts",
-    "docs"
+    "docs",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=18"
