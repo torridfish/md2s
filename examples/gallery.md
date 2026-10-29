@@ -295,6 +295,33 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 **Area c, centred in its cell**, tinted by `<style scoped>.area-c { … }`
 :::
 
+### Rows without sizes: as tall as their content, the last one takes the rest
+
+<!-- _layout: "eq eq" "p z" "l l" / 1fr 1fr -->
+
+::: eq
+$$
+\mathcal L(\theta) = -\sum_{i=1}^{N} \log p_\theta(y_i \mid x_i)
+$$
+:::
+
+::: p
+$$
+p_\theta(y \mid x) = \operatorname{softmax}(f_\theta(x))_y
+$$
+:::
+
+::: z
+$$
+\nabla_\theta \mathcal L = -\sum_{i} \nabla_\theta \log p_\theta(y_i \mid x_i)
+$$
+:::
+
+::: l
+- No row sizes in `"eq eq" "p z" "l l"`: the formulas keep their height and this list sits right under them
+- Write a size after a row's quotes (`"p z" 1fr`) to change that
+:::
+
 ### Prose page with a body rule
 
 <!-- _class: prose -->

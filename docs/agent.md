@@ -142,7 +142,7 @@ text after text with no gap, a table, figure, formula or code block 14px from it
 | `fit-left` / `fit-right` | `a b`; the left (right) one only as wide as its table or formula, the other takes the rest |
 | `img-left` / `img-right` | the same for a picture: as tall as the body allows (at most 1:1, at most 62% of the width) |
 | `rows` | `a` above `b`, halves |
-| `"a b" "a c" / auto 1fr` | anything `grid-template` takes: rows of area names in quotes, then `/` and the column sizes (`auto`, `max-content`, `1fr`, `300px`, `40%`); a row size goes after its quotes (`"a b" 1fr`) |
+| `"a b" "a c" / auto 1fr` | anything `grid-template` takes: rows of area names in quotes, then `/` and the column sizes (`auto`, `max-content`, `1fr`, `300px`, `40%`); a row size goes after its quotes (`"a b" 1fr`); a row without one is as tall as its content, and the last such row takes the rest of the height (all stay content-high with `middle`) |
 | add `middle` | the content centred vertically (`<!-- _layout: middle -->` on a plain stack, `two middle` on a grid) |
 
 ```markdown

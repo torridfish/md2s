@@ -821,9 +821,25 @@ function callouts(md) {
 // areas ("a b" "a c" / auto 1fr); `middle` centres it vertically. ::: name … ::: puts blocks in an area;
 // blocks outside any area fill the cells in order. The old _class: columns picks a preset from its first block.
 const LAYOUTS = ['two', 'fit-left', 'fit-right', 'img-left', 'img-right', 'rows'];
+// A row of a custom template with no size after its quotes would be `auto`, and auto rows share out the
+// body's spare height, leaving gaps under short rows. So an unsized row is as tall as its content and an
+// unsized last row takes the rest (minmax(0, 1fr)); under `middle` it stays auto, so the rows can centre.
+function sizeRows(template, middle) {
+  const at = template.search(/\/(?=[^"]*(?:"[^"]*"[^"]*)*$)/);   // the / outside quotes, before the columns
+  const rows = (at < 0 ? template : template.slice(0, at)).match(/"[^"]*"|[^\s"(]+\([^)]*\)|[^\s"]+/g) || [];
+  const out = [];
+  rows.forEach((t, k) => {
+    out.push(t);
+    if (t.startsWith('"') && !(rows[k + 1] && !rows[k + 1].startsWith('"'))) {
+      const last = !rows.slice(k + 1).some((r) => r.startsWith('"'));
+      out.push(last && !middle ? 'minmax(0, 1fr)' : 'auto');
+    }
+  });
+  return out.join(' ') + (at < 0 ? '' : ' ' + template.slice(at));
+}
 function layoutOf(value) {
-  const custom = (value.match(/"[^"]*"[^"]*/g) || []).join('').replace(/\bmiddle\b/g, '').trim();
   const words = value.replace(/"[^"]*"/g, ' ').split(/[\s/]+/);
+  const custom = sizeRows((value.match(/"[^"]*"[^"]*/g) || []).join('').replace(/\bmiddle\b/g, '').trim(), words.includes('middle'));
   const preset = LAYOUTS.find((n) => words.includes(n));
   const cls = ['body'];
   if (custom || preset) cls.push('layout');
