@@ -24,17 +24,17 @@
     "test": "node test/smoke.js"
   },
   "dependencies": {
-    "@citation-js/core": "^0.9.0",
-    "@citation-js/plugin-bibtex": "^0.9.0",
-    "@citation-js/plugin-csl": "^0.9.0",
-    "@hpcc-js/wasm-graphviz": "^1.30.0",
-    "@marp-team/marp-cli": "^4.5.1",
-    "markdown-it-attrs": "^4.5.0",
-    "markdown-it-bracketed-spans": "^1.0.3",
-    "markdown-it-container": "^4.0.0",
-    "markdown-it-footnote": "^4.0.0",
-    "markdown-it-mark": "^4.0.0",
-    "markdown-it-multimd-table": "^4.2.3",
-    "yaml": "^2.9.1"
+    "@citation-js/core": "0.9.0",
+    "@citation-js/plugin-bibtex": "0.9.0",
+    "@citation-js/plugin-csl": "0.9.0",
+    "@hpcc-js/wasm-graphviz": "1.30.0",
+    "@marp-team/marp-cli": "4.5.1",
+    "markdown-it-attrs": "4.5.0",
+    "markdown-it-bracketed-spans": "1.0.3",
+    "markdown-it-container": "4.0.0",
+    "markdown-it-footnote": "4.0.0",
+    "markdown-it-mark": "4.0.0",
+    "markdown-it-multimd-table": "4.2.3",
+    "yaml": "2.9.1"
   }
 }
