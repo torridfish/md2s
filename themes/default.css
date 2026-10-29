@@ -196,6 +196,9 @@ section > .body.layout > p.figures, .body.layout > .area > p.figures { justify-c
 /* ---------- body text: notes, lists, prose ---------- */
 section p, section li { margin: 0; }
 :is(.body, .area) > p { padding: 0 var(--inset-body); }
+/* a > further down the slide (only the first one is the lead) is a paragraph of the body */
+:is(.body, .area) > blockquote { padding: 0 var(--inset-body); }
+:is(.body, .area) > blockquote > p { margin: 0; }
 :is(.body, .area) > :is(ul, ol) { padding-right: var(--inset-body); }
 /* markers start where paragraph text starts, the item's text after a --mark-w slot, so a wrapped line
    lines up with the item's text; a nested list's marker sits two characters (--indent) right of its parent's */
@@ -226,8 +229,8 @@ section mark, .wip { background: var(--mark-yellow); color: var(--ink); }
 .token { background: var(--mark-blue); }
 
 /* stacked blocks after text get a gap; text after text does not (paragraph spacing 0) */
-:is(.body:not(.layout), .area) > :is(p, ul, ol) + :is(table, pre, .code, .figures, .math, img, div) { margin-top: var(--block-gap); }
-:is(.body:not(.layout), .area) > :is(table, pre, .code, .figures, .math, div) + :is(p, ul, ol, table, pre, .code, .math, div) { margin-top: var(--block-gap); }
+:is(.body:not(.layout), .area) > :is(p, ul, ol, blockquote) + :is(table, pre, .code, .figures, .math, img, div) { margin-top: var(--block-gap); }
+:is(.body:not(.layout), .area) > :is(table, pre, .code, .figures, .math, div) + :is(p, ul, ol, blockquote, table, pre, .code, .math, div) { margin-top: var(--block-gap); }
 
 /* body rule: <hr class="rule"> (a Markdown --- is a slide break in Marp) */
 section hr.rule { border: 0; border-top: 1.33px solid var(--ink); margin: var(--block-gap) 0; }
