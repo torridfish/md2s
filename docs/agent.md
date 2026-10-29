@@ -80,11 +80,11 @@ Oct. 31, 2026
 ## Experiment                <- content slide: title (24pt)
 ### Category C: KV cache     <- subtitle (14pt, amber), with the line under it
 
-> Will KV cache benefit **downstream** tasks?[^kv]    <- lead (11pt); [^kv] becomes a superscript [1]
+> Will KV cache benefit **downstream** tasks?[^kv]    <- lead (11pt); [^kv] becomes an italic superscript 1
 
 ![](figures/kv.png "4-01")   <- figure; the title is its run label
 
-[^kv]: Proposal should be scene-shared.               <- [1] Proposal … at the foot of this slide
+[^kv]: Proposal should be scene-shared.               <- ¹ Proposal … at the foot of this slide
 
 ```
 
@@ -249,6 +249,6 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
 ## Notes
 
 - Render caches: TeX, diagram and media renders live in `~/.cache/md2s/`, keyed by content.
-- Footnotes are numbered [1], [2] per slide in the order they are cited; a citation is a superscript [1] that links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
+- Footnotes are numbered 1, 2 per slide in the order they are cited, marked by an italic superscript number in the text and at the foot (square brackets are left to citations); the mark in the text links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
 - Marp does not warn about overflow: read the PDF pages before handing a deck over.
 - Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

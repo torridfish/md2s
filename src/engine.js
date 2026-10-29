@@ -677,12 +677,12 @@ function footnotes(md) {
   md.renderer.rules.footnote_ref = (tokens, idx) => {
     const { rsSlide, rsNumber, id } = tokens[idx].meta;
     const k = rsNumber || id + 1;
-    return `<sup class="fn-ref"><a href="#fn-${rsSlide ?? 0}-${k}">[${k}]</a></sup>`;
+    return `<sup class="fn-ref"><a href="#fn-${rsSlide ?? 0}-${k}">${k}</a></sup>`;
   };
   // uncited definitions were taken before text_join, so escapes (\*) are still text_special tokens
   const joinText = (children) => children.map((c) => (c.type === 'text_special' ? Object.assign(Object.create(Object.getPrototypeOf(c)), c, { type: 'text' }) : c));
   md.renderer.rules.rs_footnotes = (tokens, idx, options, env, self) =>
-    '<div class="footnotes">' + tokens[idx].meta.items.map((it) => `<div id="fn-${tokens[idx].meta.slide}-${it.number}">[${it.number}] ${self.renderInline(joinText(it.children), options, env)}</div>`).join('') + '</div>\n';
+    '<div class="footnotes">' + tokens[idx].meta.items.map((it) => `<div id="fn-${tokens[idx].meta.slide}-${it.number}"><sup class="fn-ref">${it.number}</sup> ${self.renderInline(joinText(it.children), options, env)}</div>`).join('') + '</div>\n';
 }
 
 // ---------- slide types: title, section, divider as a class on the slide ----------
