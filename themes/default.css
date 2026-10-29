@@ -233,6 +233,23 @@ section th { background: var(--surface-head); font-weight: bold; }
 section tr.ref td { background: var(--surface-head); }
 section tr.a td { background: var(--band-blue); }
 section tr.b td { background: var(--band-orange); }
+/* more row roles: hl highlights, mute greys out, sep draws a rule above the row */
+section tr.hl td { background: var(--mark-yellow); }
+section tr.mute td { color: var(--ink-faint); }
+section tr.sep td { border-top: 1.33px solid var(--ink); }
+/* one cell: {.best} bold on a light tint, {.second} underlined (a column's alignment comes from :-: in
+   the separator row and wins over the centring above) */
+section td.best { font-weight: bold; background: var(--band-blue); }
+section td.second { text-decoration: underline; }
+/* the table's style, a class on the line under it: grid (the default), booktabs (top, header and bottom
+   rules only), plain (no lines), striped (every other row tinted) */
+section table.booktabs { border-top: 1.33px solid var(--ink); border-bottom: 1.33px solid var(--ink); }
+section table.booktabs :is(th, td) { border: 0; }
+section table.booktabs thead tr:last-child th { border-bottom: 0.8px solid var(--ink); }
+section table.booktabs th, section table.plain th { background: none; }
+section table.plain :is(th, td) { border: 0; }
+section table.striped tbody tr:nth-child(even):not([class]) td { background: var(--surface-code); }
+section table caption { font-size: var(--table-size); color: var(--ink-muted); padding: 4px 0; }
 section table.settings th { background: var(--surface-head-blue); text-align: left; }
 section table.settings td { text-align: left; }
 section table.settings td.c { text-align: center; }

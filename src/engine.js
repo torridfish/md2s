@@ -34,7 +34,8 @@ const CACHE = path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.
 // ---------- theme ----------
 function theme() {
   const css = fs.readFileSync(path.join(ROOT, 'themes', 'default.css'), 'utf8');
-  return css.replaceAll('__COVER_URL__', pathToFileURL(path.join(ROOT, 'themes', 'cover-temple-night.jpg')).href);
+  // embedded, so the cover shows in --serve and in an HTML deck opened elsewhere, not only from this disk
+  return css.replaceAll('__COVER_URL__', dataUri(path.join(ROOT, 'themes', 'cover-temple-night.jpg'), 'image/jpeg'));
 }
 
 // ---------- math macros from the LaTeX preamble ----------
@@ -288,6 +289,8 @@ function figures(md) {
 }
 
 // ---------- tables: role column, settings variant ----------
+// A `role` column gives each row its class (ref / a / b tint it, hl highlights, mute greys out, sep rules it
+// off; any other word is a class too) and is not shown.
 function tables(md) {
   md.core.ruler.push('rs_tables', (state) => {
     const toks = state.tokens;
@@ -438,10 +441,13 @@ function fences(md) {
     const longest = Math.max(...src.map((l) => l.replace(/\t/g, '    ').length));
     // line numbers are a gutter column before the code, not part of each line: selecting or copying code
     // (in the PDF too, where text follows the drawing order) does not pick them up
-    const gutter = src.map((_, k) => start + k).join('\n');
+    // front matter line-numbers: false turns them off for the deck; {.no-lines} / {.lines} decide one block
+    const deck = !(env && env.md2s && env.md2s['line-numbers'] === false);
+    const numbered = /\bno-lines\b/.test(cls) ? false : /(^|\s)lines\b/.test(cls) ? true : deck;
+    const gutter = numbered ? `<span class="ln" aria-hidden="true">${src.map((_, k) => start + k).join('\n')}</span>` : '';
     const html = fence(tokens, idx, options, env, self)
-      .replace(/<pre\b/, `<pre style="--code-cols: ${(longest + digits + 1.6).toFixed(1)}"`)
-      .replace(/(<code[^>]*)>([\s\S]*?)(<\/code>)/, (_, a, body, c) => `<span class="ln" aria-hidden="true">${gutter}</span>${a}>${numberLines(body.replace(/\n$/, ''))}${c}`);
+      .replace(/<pre\b/, `<pre style="--code-cols: ${(longest + (numbered ? digits + 1.6 : 0)).toFixed(1)}"`)
+      .replace(/(<code[^>]*)>([\s\S]*?)(<\/code>)/, (_, a, body, c) => `${gutter}${a}>${numberLines(body.replace(/\n$/, ''))}${c}`);
     return '<div class="code"><div class="code-box">' + (label ? `<div class="code-path">${md.utils.escapeHtml(label)}</div>` : '') + html + '</div></div>\n';
   };
 }
@@ -643,34 +649,60 @@ function insertToc(src) {
   return lines.join('\n');
 }
 
-/** Fill the contents slide: every later slide's ## with its ### under it, a run of slides with the same ##
-    as one entry, (1/2)-style part numbers dropped, each entry linking to its first slide. */
+/** Fill the contents slide. Without section pages: every later slide's ## with its ### under it, a run of
+    slides with the same ## as one entry. With section pages (# alone): each section is an entry with the
+    ### of its slides under it (## is a slide category, which would only repeat); slides before the first
+    section keep the ## form, and the References slides are an entry of their own. A section with no
+    slides after it (the thanks page) and {.divider} pages are left out. Part numbers like (1/2) are
+    dropped, and each line links to its first slide. */
 function tocs(md) {
   md.core.ruler.after('marpit_slide', 'rs_toc', (state) => {
     const toks = state.tokens;
     const at = toks.findIndex((t) => t.type === 'html_block' && /<div class="toc"><\/div>/.test(t.content));
     if (at < 0) return;
-    const groups = [];
+    // one record per slide after the contents slide: its first #, ## and ###, and whether it is References
+    const slides = [];
     let slide = 0, tocSlide = 0;
     toks.forEach((t, i) => {
-      if (t.type === 'marpit_slide_open') slide++;
+      if (t.type === 'marpit_slide_open') { slide++; if (tocSlide) slides.push({ slide }); }
       if (i === at) tocSlide = slide;
-      if (t.type !== 'heading_open' || !['h1', 'h2', 'h3'].includes(t.tag) || !tocSlide || slide <= tocSlide) return;
+      const cur = slides[slides.length - 1];
+      if (!tocSlide || slide <= tocSlide || !cur) return;
+      if (t.type === 'html_block' && /class="references/.test(t.content)) cur.refs = true;
+      if (t.type !== 'heading_open' || cur[t.tag] || !['h1', 'h2', 'h3'].includes(t.tag)) return;
       // render the heading's own parsed tokens: md.renderInline would parse again and reset Marp's directives
-      const html = state.md.renderer.renderInline(toks[i + 1].children || [], state.md.options, state.env).trim();
-      const text = toks[i + 1].content.replace(/\s*\{[^}]*\}\s*$/, '');
-      if (t.tag === 'h1') { groups.push(null); return; }    // a section page ends the run of a title
-      const last = groups[groups.length - 1];
-      if (t.tag === 'h2') { if (!last || last.title !== text || last.slideEnd !== slide - 1) groups.push({ title: text, html, slide, slideEnd: slide, subs: [] }); else last.slideEnd = slide; return; }
-      if (!last) return;
-      last.slideEnd = slide;
       const part = /\s*\(\d+\s*\/\s*\d+\)\s*$/;
-      const sub = text.replace(part, '');
-      if (!last.subs.some((x) => x.title === sub)) last.subs.push({ title: sub, html: html.replace(part, ''), slide });
+      cur[t.tag] = {
+        text: toks[i + 1].content.replace(/\s*\{[^}]*\}\s*$/, '').replace(part, ''),
+        html: state.md.renderer.renderInline(toks[i + 1].children || [], state.md.options, state.env).trim().replace(part, ''),
+        divider: /\bdivider\b/.test(t.attrGet('class') || '') || /\{[^}]*\.divider[^}]*\}\s*$/.test(toks[i + 1].content),
+      };
     });
+    const sectioned = slides.some((sl, k) => sl.h1 && !sl.h1.divider && slides.slice(k + 1).some((x) => !x.h1 && (x.h2 || x.h3)));
+    const groups = [];
+    let section = null, last = null;
+    const sub = (g, h, sl) => { if (h && !g.subs.some((x) => x.text === h.text)) g.subs.push({ ...h, slide: sl.slide }); };
+    for (const sl of slides) {
+      if (sl.h1) {
+        last = null;
+        if (sl.h1.divider) continue;
+        section = sectioned ? { ...sl.h1, slide: sl.slide, subs: [], section: true } : null;
+        if (section) groups.push(section);
+        continue;
+      }
+      if (sl.refs) {
+        if (!groups.some((g) => g.refs)) groups.push({ ...sl.h2, slide: sl.slide, subs: [], refs: true });
+        section = null; last = null;
+        continue;
+      }
+      if (section) { sub(section, sl.h3 || sl.h2, sl); continue; }
+      if (sl.h2 && !(last && last.text === sl.h2.text && last.end === sl.slide - 1)) groups.push((last = { ...sl.h2, slide: sl.slide, subs: [] }));
+      if (last) { last.end = sl.slide; sub(last, sl.h3, sl); }
+    }
     const li = (g) => `<li><a href="#${g.slide}">${g.html}</a>` +
       (g.subs.length ? `<ul>${g.subs.map((x) => `<li><a href="#${x.slide}">${x.html}</a></li>`).join('')}</ul>` : '') + '</li>';
-    toks[at].content = `<div class="toc"><ul>${groups.filter(Boolean).map(li).join('')}</ul></div>\n`;
+    // a section with nothing after it (the thanks page) is not an entry
+    toks[at].content = `<div class="toc"><ul>${groups.filter((g) => !g.section || g.subs.length).map(li).join('')}</ul></div>\n`;
   });
 }
 
@@ -894,17 +926,35 @@ module.exports = ({ marp }) => {
   // with headingDivider the # line starts its own slide; a --- as well would leave an empty slide between
   const thanks = (src) => (process.env.MD2S_THANKS ? `${src.replace(/\s*$/, '')}\n\n${DIVIDED.test(src) ? '' : '---\n\n'}# ${process.env.MD2S_THANKS}\n` : src);
   const parse = marp.markdown.parse.bind(marp.markdown);
-  marp.markdown.parse = (src, env) => parse(thanks(insertToc(repeatTitles(citations(src)))), env);
+  // the deck's front matter reaches the renderers through env.md2s (line-numbers …)
+  marp.markdown.parse = (src, env = {}) => {
+    env.md2s = frontMatter(src);
+    return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
+  };
   // md2s --html / --serve: the presenting tools (laser, pen, click to turn) go in after the slides
   if (process.env.MD2S_FORMAT === 'html') {
     const render = marp.render.bind(marp);
     const script = fs.readFileSync(path.join(__dirname, 'present.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
-    marp.render = (...args) => { const out = render(...args); out.html += `<script>${script}</script>`; return out; };
+    // KaTeX's fonts are local file:// URLs, which a page served over http (or opened elsewhere) may not
+    // load: keep the woff2 of each, embedded, and drop the woff / ttf fallbacks
+    const fonts = (css) => css
+      .replace(/,\s*url\((['"]?)file:[^)'"]*\.(woff|ttf)\1\)\s*format\("(woff|truetype)"\)/g, '')
+      .replace(/url\((['"]?)(file:[^)'"]*\.woff2)\1\)/g, (m, q, url) => {
+        try { return `url(${dataUri(require('url').fileURLToPath(url), 'font/woff2')})`; } catch { return m; }
+      });
+    marp.render = (...args) => {
+      const out = render(...args);
+      out.css = fonts(out.css);
+      out.html += `<script>${script}</script>`;
+      return out;
+    };
   }
   return marp
     .use(require('markdown-it-footnote'))
     .use(require('markdown-it-mark'))
     .use(require('markdown-it-bracketed-spans'))
+    // MultiMarkdown tables: || spans the next column, ^^ the row above, two header rows, [Caption]
+    .use(require('markdown-it-multimd-table'), { multiline: false, rowspan: true, headerless: false, multibody: true })
     .use(require('markdown-it-attrs'), { allowedAttributes: ['class', 'style', 'scale', 'path', 'start'] })
     .use(require('markdown-it-container'), 'area', {
       validate: (params) => /^[A-Za-z][\w-]*(\s+[\w-]+)*$/.test(params.trim()),

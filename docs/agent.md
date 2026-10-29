@@ -30,6 +30,7 @@ headingDivider: 2     # every # and ## starts a slide, so no --- is needed
 toc: true             # a contents slide after the first one ("Outline"; `toc: Contents` names it)
 bibliography: refs.bib        # BibTeX: a path (relative to the deck), a list of paths, or entries written in place
 citation-style: apa           # the default; ieee, vancouver, harvard1, or a .csl file
+line-numbers: true            # the default; false drops line numbers from every code block
 ---
 ```
 
@@ -51,9 +52,11 @@ bibliography: |              # a few entries need no .bib file
     journal={Nature}, volume={521}, pages={436--444}, year={2015}}
 ```
 
-The contents slide lists every later slide's `##` in bold with its `###` under it, in two columns; a run of
-slides under the same `##` is one entry, a part number like `(1/2)` at the end of a `###` is dropped (so
-the parts are one line), and every line links to its slide in the PDF.
+The contents slide lists the deck in two columns, each line linking to its slide. With section pages
+(`# Title` alone), each section is an entry with the `###` of its slides under it (the `##` categories would
+only repeat); without them, each `##` is an entry with its `###` under it, a run of slides under the same
+`##` being one entry. Part numbers like `(1/2)` are dropped, so the parts are one line; the References
+slides are an entry of their own; the thanks page and `{.divider}` pages are left out.
 
 A run of slides under the same title writes the `##` once: a `###` after another `###` starts the next
 slide with the same `##`.
@@ -213,12 +216,15 @@ so people on the same network can open the deck while it runs.
 | your own macros | `\newcommand` / `\DeclareMathOperator` lines in `~/.config/md2s/macros.tex` work in `$…$`, `$$…$$` and LaTeX-rendered fences; `\argmax`, `\argmin` are built in |
 | ` ```algo ` | an `algorithm2e` body rendered with the local TeX Live (800 dpi, transparent; `{scale=1.3}` resizes) |
 | ` ```latex {.render} ` | any LaTeX body rendered the same way |
-| ` ```python ` (any language) | monokai on a dark rounded box with line numbers; a box as wide as its code, centred, at 9pt (smaller only when the longest line would not fit); the numbers are a separate column, so selecting or copying code (in the PDF too) leaves them out |
+| ` ```python ` (any language) | monokai on a dark rounded box with line numbers (`{.no-lines}` drops them for one block, `{.lines}` keeps them when the deck turned them off); a box as wide as its code, centred, at 9pt (smaller only when the longest line would not fit); the numbers are a separate column, so selecting or copying code (in the PDF too) leaves them out |
 | ` ```python {path="human_eval/execution.py" start=98} ` | the same, with the path in white at the top of the box (a label only: nothing is read from it) and numbering from 98 |
 | ` ```prompt ` | prompt template as text: `System:` bold, `{placeholder}` bold red, `<\|im_start\|>` on mark-blue |
-| a table | results table, centred and compact (1px cell padding): bold header on gray, 9pt, hairline grid |
-| a `role` column (`ref`, `a`, `b`) | row tints (reference gray, group blue, group orange); the column is not shown |
-| a table, a blank line, `{.settings}` | settings / literature table: blue header, left-aligned, short columns centred |
+| a table | results table, centred and compact (1px cell padding): bold header on gray, 9pt, hairline grid; cells centred unless the separator row says `:--` (left), `:-:` or `--:` (right) |
+| a `role` column | each row's class, and the column is not shown: `ref` gray, `a` blue, `b` orange, `hl` highlighted, `mute` greyed out, `sep` a rule above the row |
+| `\| 68.9 {.best} \|`, `{.second}` | one cell: the best number bold on a tint, the runner-up underlined |
+| a table, a blank line, `{.booktabs}` | the table's style: `grid` (the default), `booktabs` (top, header and bottom rules only), `plain` (no lines), `striped` (every other row tinted), `settings` (blue header, left-aligned, short columns centred); classes combine |
+| `\|\|` at the end of a cell, `^^` as a cell | the cell spans the next column / joins the cell above (MultiMarkdown); two header rows before the separator make a grouped header |
+| `[Caption]` on the line right after a table | a caption under it (before it: above) |
 | `<hr class="rule">` | body rule splitting the page |
 | `<!-- text -->` | speaker notes |
 

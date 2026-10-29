@@ -178,6 +178,15 @@ def train_step(model, batch, optimizer):
     return loss.item()
 ```
 
+### Code without line numbers
+
+```python {.no-lines}
+for epoch in range(epochs):
+    train_step(model, next(batches), optimizer)
+```
+
+`line-numbers: false` in the front matter turns them off for a whole deck; `{.lines}` turns one block back on.
+
 ### Code and a prompt template side by side
 
 <!-- _layout: two -->
@@ -214,13 +223,29 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 ### Results table: role column, best numbers
 
 | role | Model | Bench A | Bench B | Bench C | Average |
-| --- | --- | --- | --- | --- | --- |
+| --- | :-- | --: | --: | --: | --: |
 | ref | Baseline | 61.2 | 54.0 | 70.3 | 61.8 |
 | a | + Augmentation | 63.5 | 57.1 | 71.0 | 63.9 |
-| a | + Pretraining | 66.0 | 58.4 | 72.6 | 65.7 |
-| b | Ours | **68.9** | **61.2** | **74.1** | **68.1** |
+| a | + Pretraining | 66.0 {.second} | 58.4 {.second} | 72.6 {.second} | 65.7 {.second} |
+| b | Ours | 68.9 {.best} | 61.2 {.best} | 74.1 {.best} | 68.1 {.best} |
+| mute | Ours, one seed | 69.4 | 60.8 | 73.9 | 68.0 |
 
-- Gains hold on all three benchmarks; Bench B gains most
+- `role` tints rows (ref, a, b, hl) or greys one out (mute); `{.best}` and `{.second}` mark cells
+- `:--` and `--:` in the separator row align a column: names left, numbers right
+
+### Table styles: booktabs, merged cells and a caption
+
+|       | Bench A    || Bench B    ||
+| Model | acc | F1   | acc  | F1   |
+| :--   | :-: | :-:  | :-:  | :-:  |
+| Baseline | 61.2 | 58.0 | 54.0 | 50.3 |
+| Ours  | 68.9 {.best} | 64.1 {.best} | 61.2 {.best} | 57.7 {.best} |
+| ^^    | 67.5 | 63.0 | 60.4 | 56.9 |
+[Two seeds of Ours; `||` spans the next column, `^^` the row above]
+
+{.booktabs}
+
+- A class on the line under a table picks its style: `grid` (the default), `booktabs`, `plain`, `striped`
 
 ### Literature table
 
