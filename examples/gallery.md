@@ -30,6 +30,7 @@ Plain text with `a/config/key`, a [link](https://marp.app), ==work in progress==
 - A bullet with inline math: softmax is $\sigma(\mathbf z)_i = e^{z_i} / \sum_j e^{z_j}$
   - a nested bullet, two characters further in
 - A long bullet wraps under its own text, not under the bullet, however many words it takes to say the thing that needs saying
+- A dropped idea, greyed with its bullet {.faint}
 
 1. A numbered finding
    1. its sub-point

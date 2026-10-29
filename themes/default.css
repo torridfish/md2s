@@ -180,6 +180,8 @@ section li::before { position: absolute; left: calc(-1 * var(--mark-w)); top: 0;
 section ul > li::before { content: '•'; }
 section ol > li::before { content: counter(item) '.'; counter-increment: item; }
 section ol ol > li::before { content: counter(item, lower-alpha) '.'; }
+/* - item {.faint}: a dropped or minor item, greyed with its mark and anything nested under it */
+section li.faint::before, section li.faint li::before { color: var(--ink-faint); }
 section li > :is(ul, ol) { padding-left: var(--indent); }
 /* ➔ / → opening a paragraph: wrapped lines start after the arrow; right after a list, at the list's text */
 section p.then { padding-left: var(--arrow-w); text-indent: calc(-1 * var(--arrow-w)); }
