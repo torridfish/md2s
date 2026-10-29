@@ -210,11 +210,10 @@ Assistant: {Answer}
 ```
 
 ## Diagrams
-### mermaid and dot
+### Graphviz dot
 
-```mermaid
-flowchart LR
-  D[Dataset] --> P(Preprocess) --> M[Model] --> E{Evaluate}
+```dot
+digraph { rankdir=LR; node [shape=box]; D [label="Dataset"]; P [label="Preprocess", style=rounded]; E [label="Evaluate", shape=diamond]; D -> P -> M -> E; M [label="Model"] }
 ```
 
 ```dot

@@ -8,8 +8,8 @@
 //   - a paragraph of images becomes one centred figure row; a picture is placed at 1:1 (px/2 CSS px: 2x
 //     exports at 192 px/in) unless Marp's w:/h: keywords size it; an image title ![](f.png "4-01") is its run label
 //   - tables: a `role` column (ref / a / b) tints rows and is dropped; {.settings} after a table
-//   - fences: ```algo (algorithm2e) and ```latex {.render} rendered by tex2img.sh, ```mermaid and ```dot as
-//     inline SVG, ```prompt marked up,
+//   - fences: ```algo (algorithm2e) and ```latex {.render} rendered by tex2img.sh, ```dot as inline SVG,
+//     ```prompt marked up,
 //     every other fence monokai on a dark box with line numbers ({path="pkg/mod.py"} labels it,
 //     {start=42} sets the first line number)
 //   - inline marks: ==WIP==, [text]{.callout|.alert|.formula|.faint|.token}, # Name {.divider}
@@ -207,8 +207,9 @@ function naturalSize(src) {
 
 // ---------- media: PDF pages, videos ----------
 // ![](fig.pdf#page=2) is that page as a vector SVG (pdftocairo); ![](clip.mp4) is a <video> in --html output and
-// otherwise a poster frame (ffmpeg) with a play mark, linked to the file. A GIF needs nothing: it moves in
-// HTML, and a PDF / PPTX shows its first frame.
+// otherwise a poster frame (ffmpeg) with a play mark, linked to the file; without ffmpeg the player has no
+// poster and a PDF / PPTX shows a link to the file. A GIF needs nothing: it moves in HTML, and a PDF / PPTX
+// shows its first frame.
 const VIDEO = /\.(mp4|webm|mov|m4v|ogv)$/i;
 function cached(kind, file, extra, ext, make) {
   const abs = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(file));
@@ -254,7 +255,15 @@ function media(t) {
       // pdftocairo writes pt: 1:1 is pt x 4/3 px
       if (w && h) t.meta = { ...(t.meta || {}), natural: { w: (w * 4) / 3, h: (h * 4) / 3 } };
     } else if (VIDEO.test(file)) {
-      const poster = cached('poster', file, '', 'png', (abs, out) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-ss', '0', '-i', abs, '-frames:v', '1', out], { stdio: 'pipe' }));
+      let poster;
+      try {
+        poster = cached('poster', file, '', 'png', (abs, out) => execFileSync('ffmpeg', ['-v', 'error', '-y', '-ss', '0', '-i', abs, '-frames:v', '1', out], { stdio: 'pipe' }));
+      } catch (e) {
+        if (e.code !== 'ENOENT') throw e;
+        if (process.env.MD2S_FORMAT !== 'html') warn(`${file}: no ffmpeg, so a link stands for the video (install ffmpeg for its first frame)`);
+        t.meta = { ...(t.meta || {}), video: src, noPoster: true };
+        return;
+      }
       t.meta = { ...(t.meta || {}), video: src, poster };
       t.attrSet('src', dataUri(poster, 'image/png'));
     }
@@ -295,6 +304,10 @@ function figures(md) {
       if (process.env.MD2S_FORMAT === 'html') html = `<iframe class="youtube" src="https://www.youtube-nocookie.com/embed/${t.meta.youtube}?enablejsapi=1&rel=0&playsinline=1" style="${w}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
       else if (t.meta.offline) html = `<a class="youtube-link" href="${esc(t.meta.video)}">▶ ${esc(t.meta.video)}</a>`;
       else html = `<a class="video youtube" href="${esc(t.meta.video)}"><img src="${esc(t.attrGet('src'))}" style="${w}" alt="YouTube"></a>`;
+    } else if (t.meta && t.meta.noPoster) {
+      html = process.env.MD2S_FORMAT === 'html'
+        ? `<video src="${esc(t.meta.video)}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
+        : `<a class="youtube-link" href="${esc(t.meta.video)}">▶ ${esc(t.meta.video)}</a>`;
     } else if (t.meta && t.meta.video) {
       html = process.env.MD2S_FORMAT === 'html'
         ? `<video src="${esc(t.meta.video)}" poster="${esc(t.attrGet('src'))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
@@ -357,9 +370,12 @@ function texImage(kind, body, scale) {
     fs.mkdirSync(CACHE, { recursive: true });
     fs.writeFileSync(base + '.body.tex', body + '\n');
     try {
-      execFileSync(path.join(ROOT, 'scripts', 'tex2img.sh'), [kind === 'algo' ? '--algo' : '--body', base + '.body.tex', '-o', base, '--dpi', String(DPI), '--no-svg'], { stdio: 'pipe' });
+      execFileSync(path.join(ROOT, 'scripts', 'tex2img.sh'), [kind === 'algo' ? '--algo' : '--body', base + '.body.tex', '-o', base, '--dpi', String(DPI)], { stdio: 'pipe' });
     } catch (e) {
-      const log = fs.existsSync(base + '.log') ? fs.readFileSync(base + '.log', 'utf8').split('\n').filter((l) => /^!|^l\.\d+/.test(l)).slice(0, 4).join(' ') : String(e.message);
+      // tex2img.sh names a missing tool or package on stderr, else the log holds the LaTeX error
+      const said = String(e.stderr || '').trim();
+      const log = /not found|missing/.test(said) ? said.split('\n')[0]
+        : fs.existsSync(base + '.log') ? fs.readFileSync(base + '.log', 'utf8').split('\n').filter((l) => /^!|^l\.\d+/.test(l)).slice(0, 4).join(' ') : said || String(e.message);
       return `<pre class="prompt" style="color:#CC0000">LaTeX failed (${kind}): ${log.replace(/</g, '&lt;')}</pre>`;
     }
   }
@@ -397,41 +413,25 @@ function numberLines(html) {
   return lines.map((l) => `<span class="line">${l || ' '}</span>`).join('');
 }
 
-// ---------- diagrams: ```mermaid and ```dot as inline SVG ----------
-// Rendered at build time (mermaid-cli through the local Chrome; Graphviz as WASM) and cached; inline SVG keeps
-// the labels vector and selectable in the PDF. A diagram is placed at 1:1, scaled by {scale=…}.
-function chromePath() {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  for (const c of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
-    try { return execFileSync('sh', ['-c', `command -v ${c}`], { encoding: 'utf8' }).trim(); } catch { /* next */ }
-  }
-  return null;
-}
+// ---------- diagrams: ```dot as inline SVG ----------
+// Rendered at build time (Graphviz as WASM) and cached; inline SVG keeps the labels vector and selectable in the
+// PDF. A diagram is placed at 1:1, scaled by {scale=…}.
 function diagram(kind, body, scale) {
-  const conf = kind === 'mermaid' ? fs.readFileSync(path.join(__dirname, 'mermaid.json'), 'utf8') : '';
-  const h = crypto.createHash('sha1').update([kind, body, conf].join('\0')).digest('hex').slice(0, 12);
+  const h = crypto.createHash('sha1').update([kind, body].join('\0')).digest('hex').slice(0, 12);
   const base = path.join(CACHE, `${kind}-${h}`);
   try {
     if (!fs.existsSync(base + '.svg')) {
       fs.mkdirSync(CACHE, { recursive: true });
-      if (kind === 'dot') {
-        fs.writeFileSync(base + '.svg', execFileSync(process.execPath, [path.join(__dirname, 'dot2svg.mjs')], { input: body, stdio: 'pipe' }));
-      } else {
-        fs.writeFileSync(base + '.mmd', body);
-        fs.writeFileSync(base + '.puppeteer.json', JSON.stringify({ executablePath: chromePath(), args: ['--no-sandbox'] }));
-        execFileSync(path.join(ROOT, 'node_modules', '.bin', 'mmdc'), ['-q', '-i', base + '.mmd', '-o', base + '.svg', '-p', base + '.puppeteer.json',
-          '-c', path.join(__dirname, 'mermaid.json'), '-b', 'transparent', '-I', `mermaid-${h}`], { stdio: 'pipe' });
-      }
+      fs.writeFileSync(base + '.svg', execFileSync(process.execPath, [path.join(__dirname, 'dot2svg.mjs')], { input: body, stdio: 'pipe' }));
     }
   } catch (e) {
     const msg = String(e.stderr || e.message).split('\n').filter((l) => l.trim()).slice(0, 3).join(' ');
     return `<pre class="prompt" style="color:#CC0000">${kind} failed: ${msg.replace(/</g, '&lt;')}</pre>`;
   }
   let svg = fs.readFileSync(base + '.svg', 'utf8').replace(/^[\s\S]*?(?=<svg\b)/, '').replace(/<!--[\s\S]*?-->/g, '');
-  // the natural width: Graphviz gives pt, mermaid a max-width in px
+  // the natural width: Graphviz gives pt
   const pt = svg.match(/<svg\b[^>]*\bwidth="([\d.]+)pt"/);
-  const px = svg.match(/max-width:\s*([\d.]+)px/);
-  const w = (pt ? (Number(pt[1]) * 4) / 3 : px ? Number(px[1]) : 0) * scale;
+  const w = (pt ? (Number(pt[1]) * 4) / 3 : 0) * scale;
   svg = svg.replace(/<svg\b[^>]*>/, (tag) => tag.replace(/\s(width|height|style)="[^"]*"/g, '')
     .replace(/<svg\b/, `<svg${w ? ` style="width:${w.toFixed(1)}px"` : ''}`));
   return `<div class="diagram">${svg}</div>\n`;
@@ -446,7 +446,6 @@ function fences(md) {
     const scale = Number(t.attrGet('scale')) || 1;
     if (lang === 'algo' || lang === 'algorithm') return texImage('algo', t.content.replace(/\n$/, ''), scale) + '\n';
     if ((lang === 'latex' || lang === 'tex') && /\brender\b/.test(cls)) return texImage('tex', t.content.replace(/\n$/, ''), scale) + '\n';
-    if (lang === 'mermaid') return diagram('mermaid', t.content, scale);
     if (lang === 'dot' || lang === 'graphviz') return diagram('dot', t.content, scale);
     if (lang === 'prompt') return `<pre class="prompt">${promptHtml(t.content.replace(/\n$/, ''), md.utils.escapeHtml)}</pre>\n`;
     const label = t.attrGet('path');
@@ -601,10 +600,15 @@ const warn = (msg) => process.stderr.write(`md2s: ${msg}\n`);
 function citations(src) {
   const meta = settings(src);
   if (!meta.bibliography) return src;
-  const { Cite, plugins } = require('@citation-js/core');
-  require('@citation-js/plugin-bibtex');
-  require('@citation-js/plugin-csl');
-  let cite, style;
+  let Cite, plugins, cite, style;
+  try {
+    ({ Cite, plugins } = require('@citation-js/core'));
+    require('@citation-js/plugin-bibtex');
+    require('@citation-js/plugin-csl');
+  } catch (e) {
+    warn(`bibliography: the citation packages are missing (run npm install in ${ROOT}): ${String(e.message).split('\n')[0]}`);
+    return src;
+  }
   try {
     const deck = process.env.MD2S_DECK_DIR || process.cwd();
     const bib = (Array.isArray(meta.bibliography) ? meta.bibliography : [meta.bibliography]).map(String)

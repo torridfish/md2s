@@ -24,7 +24,7 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
 
   md2s --skill                       the Markdown syntax, written for an agent (or you)
   md2s --check                       which optional tools (Chrome, TeX, ffmpeg …) are present
-  md2s tex2img …                     LaTeX snippet → transparent PNG / SVG (md2s tex2img --help)
+  md2s tex2img …                     LaTeX snippet → transparent PNG (md2s tex2img --help)
   md2s --version
 
 Settings live in the deck's front matter (toc, bibliography …): see md2s --skill. Your own defaults for
@@ -33,16 +33,20 @@ you export yourself (SVG, PNG, PDF …). CHROME_PATH picks the browser Marp rend
 
 function fail(msg) { process.stderr.write(`md2s: ${msg}\n`); process.exit(2); }
 
+const has = (cmd) => { try { execFileSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'pipe' }); return true; } catch { return false; } };
+// a browser Marp can print through: Chrome, Chromium, Edge or Firefox
+const browser = () => !!process.env.CHROME_PATH
+  || ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable', 'firefox'].some(has)
+  || ['Google Chrome', 'Chromium', 'Microsoft Edge', 'Firefox'].some((app) => fs.existsSync(`/Applications/${app}.app`));
+
 function check() {
-  const has = (cmd) => { try { execFileSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'pipe' }); return true; } catch { return false; } };
   const tex = (file) => { try { return !!execFileSync('kpsewhich', [file], { encoding: 'utf8' }).trim(); } catch { return false; } };
   const rows = [
-    ['Chrome / Chromium', !!process.env.CHROME_PATH || ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser'].some(has) || fs.existsSync('/Applications/Google Chrome.app'), 'every output (set CHROME_PATH to pick one)'],
-    ['latex, dvisvgm', has('latex') && has('dvisvgm'), '```algo and ```latex {.render} fences, md2s tex2img'],
+    ['Chrome / Chromium', browser(), 'PDF, PPTX, PNG; --html needs none (set CHROME_PATH to pick one)'],
+    ['pdflatex', has('pdflatex'), '```algo and ```latex {.render} fences, md2s tex2img'],
     ['algorithm2e, standalone', tex('algorithm2e.sty') && tex('standalone.cls'), '```algo fences (tlmgr install algorithm2e standalone)'],
     ['pdftocairo (poppler)', has('pdftocairo'), 'LaTeX fences, PDF pages as pictures'],
-    ['python3 + Pillow', (() => { try { execFileSync('python3', ['-c', 'import PIL'], { stdio: 'pipe' }); return true; } catch { return false; } })(), 'md2s tex2img size report'],
-    ['ffmpeg', has('ffmpeg'), "a video's first frame in PDF / PPTX"],
+    ['ffmpeg', has('ffmpeg'), "a video's first frame in PDF / PPTX (without it: a link to the file)"],
   ];
   for (const [name, ok, why] of rows) console.log(`${ok ? 'ok     ' : 'missing'}  ${name.padEnd(24)} ${why}`);
   if (!fs.existsSync(MARP)) console.log(`missing  node packages            run npm install in ${ROOT}`);
@@ -76,6 +80,9 @@ if (!fs.existsSync(src)) fail(`no such file: ${src}`);
 if (!fs.existsSync(MARP)) fail(`node packages missing: run npm install in ${ROOT}`);
 if (!formats.length) formats.push('pdf');
 if (watch && formats.length > 1) fail('--watch takes one format');
+if (formats.some((f) => f !== 'html') && !browser()) {
+  fail('no browser found for PDF / PPTX / PNG: install Chrome or Chromium, set CHROME_PATH, or build --html');
+}
 
 const deckDir = path.dirname(path.resolve(src));
 // the engine sizes figures at 1:1 and resolves their paths against the deck; it appends the thanks page

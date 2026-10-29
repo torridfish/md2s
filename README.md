@@ -11,7 +11,7 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 - BibTeX citations (`bibliography: refs.bib`, `[@key]`) with a References page, in APA, IEEE or any CSL style
 - layouts without CSS: `<!-- _layout: img-right -->`, `::: a` areas, `middle`
 - callouts (`> [!NOTE]`), tables with row tints, code with line numbers that copying leaves out
-- ```` ```mermaid ````, ```` ```dot ````, ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs, videos and YouTube links
+- ```` ```dot ```` (Graphviz) and ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs, videos and YouTube links
 - a `###` that runs over continues after `---`, numbered (1/2), (2/2)
 
 ## Install
@@ -19,7 +19,7 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 ```bash
 git clone …
 npm install && npm link        # puts md2s on the PATH
-md2s --check                   # Chrome is required; TeX and ffmpeg only for their features
+md2s --check                   # Chrome is required (not for --html); TeX and ffmpeg only for their features
 ```
 
 ## Use
