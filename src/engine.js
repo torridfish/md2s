@@ -212,6 +212,22 @@ function naturalSize(src) {
 // poster and a PDF / PPTX shows a link to the file. A GIF needs nothing: it moves in HTML, and a PDF / PPTX
 // shows its first frame.
 const VIDEO = /\.(mp4|webm|mov|m4v|ogv)$/i;
+const IMAGE = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', webp: 'image/webp', avif: 'image/avif' };
+const VIDEO_TYPE = { mp4: 'video/mp4', m4v: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime', ogv: 'video/ogg' };
+// a local video in an HTML deck: embedded up to 20 MB (base64 makes it a third larger); a bigger one stays a
+// file next to the deck, and md2s says so, since the deck no longer travels alone
+const VIDEO_EMBED_MAX = 20e6;
+function videoSrc(src) {
+  if (/^[a-z]+:/i.test(src)) return src;
+  const abs = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(src));
+  let size;
+  try { size = fs.statSync(abs).size; } catch { return src; }
+  if (size > VIDEO_EMBED_MAX) {
+    warn(`${src}: ${(size / 1e6).toFixed(0)} MB, kept as a file next to the HTML deck (send it along)`);
+    return src;
+  }
+  return dataUri(abs, VIDEO_TYPE[path.extname(abs).slice(1).toLowerCase()] || 'video/mp4');
+}
 function cached(kind, file, extra, ext, make) {
   const abs = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(file));
   const stat = fs.statSync(abs);
@@ -267,6 +283,12 @@ function media(t) {
       }
       t.meta = { ...(t.meta || {}), video: src, poster };
       t.attrSet('src', dataUri(poster, 'image/png'));
+    } else if (process.env.MD2S_FORMAT === 'html' && IMAGE[path.extname(file).slice(1).toLowerCase()]) {
+      // an HTML deck carries its pictures, so it can be sent on its own; sized from the file first
+      const abs = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(file));
+      const natural = naturalSize(file);
+      if (natural) t.meta = { ...(t.meta || {}), natural };
+      t.attrSet('src', dataUri(abs, IMAGE[path.extname(file).slice(1).toLowerCase()]));
     }
   } catch (e) {
     t.meta = { ...(t.meta || {}), error: String(e.message).split('\n')[0] };
@@ -307,11 +329,11 @@ function figures(md) {
       else html = `<a class="video youtube" href="${esc(t.meta.video)}"><img src="${esc(t.attrGet('src'))}" style="${w}" alt="YouTube"></a>`;
     } else if (t.meta && t.meta.noPoster) {
       html = process.env.MD2S_FORMAT === 'html'
-        ? `<video src="${esc(t.meta.video)}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
+        ? `<video src="${esc(videoSrc(t.meta.video))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
         : `<a class="youtube-link" href="${esc(t.meta.video)}">▶ ${esc(t.meta.video)}</a>`;
     } else if (t.meta && t.meta.video) {
       html = process.env.MD2S_FORMAT === 'html'
-        ? `<video src="${esc(t.meta.video)}" poster="${esc(t.attrGet('src'))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
+        ? `<video src="${esc(videoSrc(t.meta.video))}" poster="${esc(t.attrGet('src'))}" style="${esc(t.attrGet('style') || '')}" controls preload="metadata"></video>`
         : `<a class="video" href="${esc(t.meta.video)}">${html}</a>`;
     }
     return label ? `<span class="figure"><span class="run-label">${md.utils.escapeHtml(label)}</span>${html}</span>` : html;

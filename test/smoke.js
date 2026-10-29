@@ -43,6 +43,10 @@ for (const [re, what] of failures) {
   check(!m, `${what} rendered${m ? `: ${m[0].replace(/<[^>]+>/g, '').slice(0, 120)}` : ''}`);
 }
 
+// the HTML deck travels alone: every picture, font and stylesheet inside it (links and players aside)
+const outside = [...html.matchAll(/<(?:img|video|source)\b[^>]*?\s(?:src|poster)="(?!data:|https?:)([^"]+)"|url\(\s*['"]?(?!data:|#)([^'")]+)/g)].map((m) => m[1] || m[2]);
+check(!outside.length, `HTML embeds its pictures and fonts${outside.length ? `: ${outside.slice(0, 3).join(', ')}` : ''}`);
+
 // fixed bugs that the gallery shows
 check(/<td[^>]*>56\.9<\/td>/.test(html), 'a ^^ row under a two-row header with || keeps its last cell (56.9)');
 check(/class="area area-c\b/.test(html), 'a layout area carries its area-<name> class');

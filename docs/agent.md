@@ -9,7 +9,7 @@ layouts without CSS, callouts, diagrams, code, and media. You write the content;
 md2s deck.md                       # deck.pdf next to deck.md (vector)
 md2s deck.md --pdf --pptx          # + deck.pptx, one 2880x1620 picture per slide
 md2s deck.md --pptx --scale 4      # pictures at 4x the canvas (3840x2160); default 3, PDF is vector
-md2s deck.md --html                # one HTML file to present from (keys below)
+md2s deck.md --html                # one HTML file to present from (keys below), pictures and fonts inside: send it alone
 md2s deck.md --serve               # present at http://localhost:8080/deck.md (--port N), re-rendered on reload
 md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
@@ -192,7 +192,7 @@ summary, question) purple, `WARNING` (attention, todo) amber, `CAUTION` (danger,
 | `{scale=0.8}` on either | resized from 1:1 |
 | `![](fig.pdf#page=2)` | that page of a PDF as a vector picture (pdftocairo), at 1:1 (pt x 4/3) |
 | `![](anim.gif)` | moves in `--html`; a PDF or PPTX shows its first frame |
-| `![](clip.mp4)` (webm, mov) | a player in `--html`; a PDF or PPTX shows its first frame (ffmpeg) with a play mark, linked to the file; without ffmpeg, a link to the file (and a player with no poster in `--html`) |
+| `![](clip.mp4)` (webm, mov) | a player in `--html`, the video inside the file up to 20 MB (a bigger one stays next to it, and md2s says so); a PDF or PPTX shows its first frame (ffmpeg) with a play mark, linked to the file; without ffmpeg, a link to the file (and a player with no poster in `--html`) |
 | `![](https://youtu.be/ID "Title")` (or a youtube.com link) | a YouTube player in `--html`; a PDF or PPTX shows its thumbnail (fetched once at build time) with a play mark, linked to the video; offline, a plain link |
 
 Diagrams and frames are cached in `~/.cache/md2s/`.
