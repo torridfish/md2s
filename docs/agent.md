@@ -19,6 +19,10 @@ md2s --check                       # which optional tools (TeX, ffmpeg …) are 
 md2s tex2img --display 'E = mc^2' -o eq    # a standalone formula picture
 ```
 
+To look at pages as pictures, use `md2s deck.md --png` or rasterize the PDF at a multiple of 96 dpi
+(`pdftoppm -r 192`): at other resolutions a 1px table rule rounds to 1 or 2 pixels and some rows look ruled
+heavier than others, though the PDF draws them all alike.
+
 ## Front matter
 
 ```yaml
