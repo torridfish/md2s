@@ -76,6 +76,27 @@ for (const [slide, re] of expect) {
 }
 check(got.length === expect.length, `layout check warns nowhere else (${got.length} warnings, ${expect.length} expected)`);
 
+// the deck structures a converted deck runs into (test/cases.md, test/no-divider.md)
+const deck = (name) => {
+  const b = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(__dirname, name), '--html', '-o', out], { encoding: 'utf8' });
+  return { html: fs.existsSync(path.join(out, name.replace(/\.md$/, '.html'))) ? fs.readFileSync(path.join(out, name.replace(/\.md$/, '.html')), 'utf8') : '', err: b.stderr };
+};
+const cases = deck('cases.md');
+const sections = (cases.html.match(/<section\b/g) || []).length;
+check(sections === 5, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 5 expected)`);
+check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
+const tables = (cases.html.match(/<table\b/g) || []).length;
+check(tables === 4 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 4 expected), no --- cells`);
+check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
+check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
+check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
+check(cases.html.includes('hello {Task query}') && cases.html.includes('braces {Task response}'), 'braces that are not attributes stay text');
+
+const plain = deck('no-divider.md');
+check(/not front matter/.test(plain.err) && /<h3[^>]*>A deck whose first line is ---/.test(plain.html), 'a leading --- that opens no front matter keeps the first slide, and says so');
+check(/a second ##/.test(plain.err), 'without headingDivider, a slide with a second ## draws a warning');
+check(/<div class="body[^"]*">[\s\S]*<h2[^>]*>Second<\/h2>/.test(plain.html) && !/over the header/.test(plain.err), 'a ## further down a slide heads the body, not the title slot');
+
 fs.rmSync(out, { recursive: true, force: true });
 if (problems.length) {
   console.log(`\n${problems.length} check(s) failed. md2s --check shows which tools are missing; md2s setup installs them.`);
