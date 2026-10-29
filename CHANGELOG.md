@@ -3,6 +3,14 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
+## 0.2.1 (2026-10-30)
+
+### Fixed
+
+- Installed into a project with `npm install` (dependencies hoisted), md2s could not find Marp and stopped
+  with "node packages missing". It now finds Marp through Node's module resolution, as a clone and a
+  global install already did.
+
 ## 0.2.0 (2026-10-30)
 
 ### Added

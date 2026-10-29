@@ -86,7 +86,7 @@ function status() {
 function check(root) {
   const rows = status();
   for (const r of rows) console.log(`${r.ok ? 'ok     ' : 'missing'}  ${r.name.padEnd(24)} ${r.why}`);
-  if (!fs.existsSync(path.join(root, 'node_modules', '.bin', 'marp'))) console.log(`missing  node packages            run npm install in ${root}`);
+  try { require.resolve('@marp-team/marp-cli/package.json'); } catch { console.log(`missing  node packages            run npm ci in ${root}`); }
   if (rows.some((r) => !r.ok)) console.log('\nmd2s setup installs what is missing (asking first).');
 }
 

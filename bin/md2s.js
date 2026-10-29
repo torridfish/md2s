@@ -6,7 +6,10 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const MARP = path.join(ROOT, 'node_modules', '.bin', 'marp');
+// Marp's CLI wherever npm put it: under md2s in a clone or a global install, hoisted in a project's install
+const MARP = (() => {
+  try { return path.join(path.dirname(require.resolve('@marp-team/marp-cli/package.json')), 'marp-cli.js'); } catch { return null; }
+})();
 const CONFIG = path.join(ROOT, 'src', 'config.js');
 
 const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML), on Marp.
@@ -66,7 +69,7 @@ for (let i = 0; i < args.length; i++) {
 }
 if (!src) { console.log(HELP); process.exit(2); }
 if (!fs.existsSync(src)) fail(`no such file: ${src}`);
-if (!fs.existsSync(MARP)) fail(`node packages missing: run npm install in ${ROOT}`);
+if (!MARP) fail(`node packages missing: run npm ci in ${ROOT}`);
 if (!formats.length) formats.push('pdf');
 if (watch && formats.length > 1) fail('--watch takes one format');
 if (formats.some((f) => f !== 'html') && !tools.browser()) {
@@ -77,7 +80,7 @@ const deckDir = path.dirname(path.resolve(src));
 // the engine sizes figures at 1:1 and resolves their paths against the deck; it appends the thanks page
 const env = { ...process.env, MD2S_DECK_DIR: deckDir, MD2S_THANKS: thanks };
 const marp = (extra, format) => {
-  const r = spawnSync(MARP, ['--no-stdin', '--config-file', CONFIG, ...extra], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: format } });
+  const r = spawnSync(process.execPath, [MARP, '--no-stdin', '--config-file', CONFIG, ...extra], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: format } });
   if (r.status) process.exit(r.status);
 };
 
