@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Stop making slides, do research: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML) on Marp.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "bin": {
     "md2s": "bin/md2s.js"
   },
