@@ -3,7 +3,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const { spawnSync, execFileSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const MARP = path.join(ROOT, 'node_modules', '.bin', 'marp');
@@ -23,7 +23,10 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --pdf -o out/         write into another folder
 
   md2s --skill                       the Markdown syntax, written for an agent (or you)
-  md2s --check                       which optional tools (Chrome, TeX, ffmpeg …) are present
+  md2s --check                       which tools (Chrome, TeX, ffmpeg …) are present
+  md2s setup [--yes]                 install what is missing, asking first: a browser and TinyTeX in
+                                     ~/.cache/md2s, the CJK font in your fonts (no sudo); prints the
+                                     package-manager command for poppler and ffmpeg
   md2s tex2img …                     LaTeX snippet → transparent PNG (md2s tex2img --help)
   md2s --version
 
@@ -33,28 +36,13 @@ you export yourself (SVG, PNG, PDF …). CHROME_PATH picks the browser Marp rend
 
 function fail(msg) { process.stderr.write(`md2s: ${msg}\n`); process.exit(2); }
 
-const has = (cmd) => { try { execFileSync('sh', ['-c', `command -v ${cmd}`], { stdio: 'pipe' }); return true; } catch { return false; } };
-// a browser Marp can print through: Chrome, Chromium, Edge or Firefox
-const browser = () => !!process.env.CHROME_PATH
-  || ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge', 'microsoft-edge-stable', 'firefox'].some(has)
-  || ['Google Chrome', 'Chromium', 'Microsoft Edge', 'Firefox'].some((app) => fs.existsSync(`/Applications/${app}.app`));
-
-function check() {
-  const tex = (file) => { try { return !!execFileSync('kpsewhich', [file], { encoding: 'utf8' }).trim(); } catch { return false; } };
-  const rows = [
-    ['Chrome / Chromium', browser(), 'PDF, PPTX, PNG; --html needs none (set CHROME_PATH to pick one)'],
-    ['pdflatex', has('pdflatex'), '```algo and ```latex {.render} fences, md2s tex2img'],
-    ['algorithm2e, standalone', tex('algorithm2e.sty') && tex('standalone.cls'), '```algo fences (tlmgr install algorithm2e standalone)'],
-    ['pdftocairo (poppler)', has('pdftocairo'), 'LaTeX fences, PDF pages as pictures'],
-    ['ffmpeg', has('ffmpeg'), "a video's first frame in PDF / PPTX (without it: a link to the file)"],
-    ['Noto Serif CJK TC', (() => { try { return /Noto Serif CJK/.test(execFileSync('fc-list', [':family=Noto Serif CJK TC'], { encoding: 'utf8' })); } catch { return fs.existsSync('/Library/Fonts/NotoSerifCJK.ttc'); } })(), 'only for Chinese on slides (fonts-noto-cjk)'],
-  ];
-  for (const [name, ok, why] of rows) console.log(`${ok ? 'ok     ' : 'missing'}  ${name.padEnd(24)} ${why}`);
-  if (!fs.existsSync(MARP)) console.log(`missing  node packages            run npm install in ${ROOT}`);
-}
+// the browser and TinyTeX that md2s setup installed, for this process and everything it starts
+const tools = require(path.join(ROOT, 'src', 'setup.js'));
+tools.useLocalTools();
 
 const args = process.argv.slice(2);
 if (args[0] === 'tex2img') process.exit(spawnSync(path.join(ROOT, 'scripts', 'tex2img.sh'), args.slice(1), { stdio: 'inherit' }).status ?? 1);
+if (args[0] === 'setup') { tools.setup(ROOT, args.slice(1)); return; }
 
 let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '';
 const formats = [];
@@ -70,7 +58,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--thanks') thanks = thanks || 'Thanks for listening.';
   else if (a === '--thanks-text') thanks = value();
   else if (a === '--skill') { process.stdout.write(fs.readFileSync(path.join(ROOT, 'docs', 'agent.md'), 'utf8')); process.exit(0); }
-  else if (a === '--check') { check(); process.exit(0); }
+  else if (a === '--check') { tools.check(ROOT); process.exit(0); }
   else if (a === '--version' || a === '-v') { console.log(require(path.join(ROOT, 'package.json')).version); process.exit(0); }
   else if (a === '--help' || a === '-h') { console.log(HELP); process.exit(0); }
   else if (a.startsWith('-')) fail(`unknown option ${a} (md2s --help)`);
@@ -81,8 +69,8 @@ if (!fs.existsSync(src)) fail(`no such file: ${src}`);
 if (!fs.existsSync(MARP)) fail(`node packages missing: run npm install in ${ROOT}`);
 if (!formats.length) formats.push('pdf');
 if (watch && formats.length > 1) fail('--watch takes one format');
-if (formats.some((f) => f !== 'html') && !browser()) {
-  fail('no browser found for PDF / PPTX / PNG: install Chrome or Chromium, set CHROME_PATH, or build --html');
+if (formats.some((f) => f !== 'html') && !tools.browser()) {
+  fail('no browser found for PDF / PPTX / PNG: run md2s setup, set CHROME_PATH, or build --html');
 }
 
 const deckDir = path.dirname(path.resolve(src));

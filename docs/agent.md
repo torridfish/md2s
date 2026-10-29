@@ -15,7 +15,8 @@ md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
 md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
 md2s deck.md --thanks-text "Questions?"   # the same page with other words
-md2s --check                       # which optional tools (TeX, ffmpeg …) are installed
+md2s --check                       # which tools (Chrome, TeX, ffmpeg …) are installed
+md2s setup                         # install what is missing, without sudo (asks first; --yes to skip asking)
 md2s tex2img --display 'E = mc^2' -o eq    # a standalone formula picture
 ```
 

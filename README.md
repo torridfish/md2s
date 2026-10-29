@@ -18,11 +18,20 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 
 ## Install
 
+Linux (Ubuntu, Debian, WSL) or macOS, with Node 18 or newer:
+
 ```bash
-git clone …
-npm install && npm link        # puts md2s on the PATH
-md2s --check                   # Chrome is required (not for --html); TeX and ffmpeg only for their features
+git clone https://github.com/torridfish/md2s.git && cd md2s
+npm ci && npm link             # puts md2s on the PATH
+md2s setup                     # installs what is missing, asking first
 ```
+
+`md2s setup` needs no sudo. If there is no Chrome, Chromium, Edge or Firefox, it downloads Chrome for
+Testing (about 400 MB unpacked) into `~/.cache/md2s`. Without TeX it downloads TinyTeX (about 250 MB) for
+```` ```algo ```` fences, and on request it adds Noto Serif CJK TC (50 MB) for Chinese text. Poppler and
+ffmpeg need the system package manager, so it prints that command (`sudo apt-get install poppler-utils`)
+for you to run. Tools already on the system are used as they are. `md2s --check` lists what is there, and
+`md2s setup --yes` installs without asking.
 
 ## Use
 
