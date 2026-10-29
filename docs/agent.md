@@ -84,7 +84,7 @@ in Marp, so a body rule inside a slide is `<hr class="rule">`.
 ## Slide types
 
 All text is Times New Roman: 24pt titles (30pt on the title page), 14pt subtitles, 11pt leads and body,
-9pt tables, 8pt footnotes, line spacing 1.3 (code stays monospace, math is KaTeX). The engine reads each slide's type from the
+9pt tables, 7pt footnotes, a 9pt slide number (none on the title page), line spacing 1.3 (code stays monospace, math is KaTeX). The engine reads each slide's type from the
 Markdown:
 
 ```markdown
@@ -246,7 +246,7 @@ Every anchor is a CSS variable in `:root` at the top of md2s's `themes/default.c
 
 | Variable | Default | What it places |
 | --- | --- | --- |
-| `--title-size`, `--subtitle-size`, `--body-size`, `--table-size`, `--note-size` | 24, 14, 11, 9, 8 pt | the type sizes |
+| `--title-size`, `--subtitle-size`, `--body-size`, `--table-size`, `--note-size`, `--footnote-size`, `--number-size` | 24, 14, 11, 9, 8, 7, 9 pt | the type sizes (`--note-size`: code path labels) |
 | `--cover-title-size`, `--code-size`, `--leading`, `--indent` | 30 pt, 9 pt, 1.3, 2em | title-page title; code; line spacing; one list level |
 | `--mark-w`, `--arrow-w` | 1.5em, 1.25em | a list marker's slot; the slot of the → opening a consequence line |
 | `--bound` | 4 (3pt) | space around a table, figure or formula placed left in a column |
@@ -262,7 +262,7 @@ Every anchor is a CSS variable in `:root` at the top of md2s's `themes/default.c
 | `--run-label-height` | 22 | space a run label takes above its figure |
 | `--footnote-width` | 916 | widest a footnote line runs, from the left edge |
 | `--block-top` | 8 | extra room above a table, figure, code or formula that comes right under the line |
-| `--number-right`, `--number-top`, `--number-height` | 16, 508, 28 | the slide number, right-aligned |
+| `--number-right`, `--number-top`, `--number-height` | 16, 514, 24 | the slide number, right-aligned; a one-line footnote sits on its centre line |
 | `--cover-title-*`, `--cover-sub-*` | | title-page title and subtitle (centred) |
 | `--section-title-*`, `--divider-*` | | section-page title; plain divider line |
 

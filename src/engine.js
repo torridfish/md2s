@@ -275,7 +275,7 @@ function figures(md) {
     const esc = md.utils.escapeHtml;
     if (t.meta && t.meta.youtube) {
       const w = esc(t.attrGet('style') || `width:${t.meta.natural.w}px`);
-      if (process.env.MD2S_FORMAT === 'html') html = `<iframe class="youtube" src="https://www.youtube-nocookie.com/embed/${t.meta.youtube}" style="${w}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+      if (process.env.MD2S_FORMAT === 'html') html = `<iframe class="youtube" src="https://www.youtube-nocookie.com/embed/${t.meta.youtube}?enablejsapi=1&rel=0&playsinline=1" style="${w}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
       else if (t.meta.offline) html = `<a class="youtube-link" href="${esc(t.meta.video)}">▶ ${esc(t.meta.video)}</a>`;
       else html = `<a class="video youtube" href="${esc(t.meta.video)}"><img src="${esc(t.attrGet('src'))}" style="${w}" alt="YouTube"></a>`;
     } else if (t.meta && t.meta.video) {

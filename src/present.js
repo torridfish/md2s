@@ -6,7 +6,8 @@
 //   l   laser pointer on / off (a red dot)                   d   pen on / off: draw on the slide
 //   u   undo the last stroke (or erase) on this slide         e   erase this slide's drawing
 //   ?   show these keys
-// Drawings stay per slide, in slide coordinates, for as long as the page is open. Only the audience view
+// Drawings stay per slide, in slide coordinates, for as long as the page is open. Videos and YouTube players
+// start when their slide comes up and pause when it goes. Only the audience view
 // gets the tools: bespoke's overview, presenter view and its previews load this page again in a frame or
 // window with ?view=…
 (() => {
@@ -109,8 +110,27 @@
     else if (x > 2 / 3) key('ArrowRight');
   });
 
+  // media follow the slide: play on arrival, pause on leaving (a YouTube player through its iframe API)
+  let shown = -1;
+  const youtube = (frame, func) => frame.contentWindow && frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: [] }), '*');
+  function syncMedia() {
+    const now = active();
+    if (now === shown) return;
+    slides().forEach((s, i) => {
+      for (const v of s.querySelectorAll('video')) {
+        if (i !== now) v.pause();
+        // a browser may refuse sound before the first click or key: then start muted
+        else v.play().catch(() => { v.muted = true; v.play().catch(() => {}); });
+      }
+      for (const f of s.querySelectorAll('iframe.youtube')) youtube(f, i === now ? 'playVideo' : 'pauseVideo');
+    });
+    shown = now;
+  }
+  const update = () => { redraw(); syncMedia(); };
   addEventListener('resize', redraw);
-  addEventListener('hashchange', redraw);
-  new MutationObserver(redraw).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
-  redraw();
+  addEventListener('hashchange', update);
+  new MutationObserver(update).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+  // a player that loads after its slide is already up gets told again
+  document.querySelectorAll('iframe.youtube').forEach((f) => f.addEventListener('load', () => { shown = -1; syncMedia(); }));
+  update();
 })();

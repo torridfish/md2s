@@ -154,6 +154,7 @@ $$
 
 ```algo
 \begin{algorithm}[H]
+\caption{Gradient descent}
 \Input{data $\mathcal D$, learning rate $\eta$}
 \Output{parameters $\theta$}
 $\theta \gets \theta_0$\;
@@ -275,8 +276,6 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 <hr class="rule">
 
 Next: early stopping at the best validation step, and a second seed.
-
-# Presenter name {.divider}
 
 ## TODO
 ### Week of Nov. 10

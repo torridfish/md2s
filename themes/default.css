@@ -2,7 +2,7 @@
 /* md2s's default theme for Marp. The canvas is a 10 x 5.625 in slide at 96 px/in; every anchor and size is a
    variable in :root below, so moving the header, the body box or the footnote band is a change there.
    All text is Times New Roman at three sizes (24pt title, 14pt subtitle, 11pt lead and body), 9pt tables,
-   8pt footnotes, 30pt on the title page; code stays monospace and math is KaTeX. The engine (src/engine.js) gives every
+   7pt footnotes, 30pt on the title page; code stays monospace and math is KaTeX. The engine (src/engine.js) gives every
    slide its type as a class, read from the Markdown:
      title    # Title + a subtitle paragraph (the cover), or a last slide holding only a # line (the thanks page)
      section  # Title alone: a photo page opening a block of slides
@@ -32,7 +32,9 @@
   --subtitle-size: 18.67px;/* 14pt: subtitle, title-page subtitle, prose */
   --body-size: 14.67px;    /* 11pt: lead, body text, lists, run labels, slide number */
   --table-size: 12px;      /* 9pt: every table */
-  --note-size: 10.67px;    /* 8pt: footnotes, code path labels */
+  --note-size: 10.67px;    /* 8pt: code path labels, table notes */
+  --footnote-size: 9.33px; /* 7pt: footnotes */
+  --number-size: 12px;     /* 9pt: the slide number */
   --code-size: 12px;       /* 9pt: code blocks */
   --cover-title-size: 40px; /* 30pt: the title-page title (cover and thanks) */
   --leading: 1.3;          /* line spacing */
@@ -56,7 +58,7 @@
   --column-gap: 22px;                      /* between the columns of a layout */
   --run-label-height: 22px;
   --footnote-width: 916px;                 /* the band below body-bottom, from the left edge, up to the slide number */
-  --number-right: 16px; --number-top: 508px; --number-height: 28px;   /* right-aligned, from the right edge */
+  --number-right: 16px; --number-top: 514px; --number-height: 24px;   /* right-aligned, from the right edge; centre at 526 */
   --cover-title-top: 230px; --cover-title-height: 80px;      /* title page: centred */
   --cover-sub-top: 420px; --cover-sub-height: 72px;
   --section-title-left: 33px; --section-title-top: 177px; --section-title-width: 895px; --section-title-height: 186px;
@@ -298,16 +300,17 @@ section > .footnotes {
   flex: none; min-height: calc(540px - var(--body-bottom)); max-width: var(--footnote-width); box-sizing: border-box;
   margin: auto calc(-1 * var(--margin-x)) calc(var(--body-bottom) - 540px);   /* auto: at the foot even with no body */
   /* a one-line footnote sits on the slide number's centre line; more lines grow upwards */
-  padding: 4px var(--space-2) calc(540px - var(--number-top) - var(--number-height) / 2 - var(--note-size) * var(--leading) / 2);
+  padding: 4px var(--space-2) calc(540px - var(--number-top) - var(--number-height) / 2 - var(--footnote-size) * var(--leading) / 2);
   display: flex; flex-direction: column; justify-content: flex-end;
-  font-size: var(--note-size); line-height: var(--leading);
+  font-size: var(--footnote-size); line-height: var(--leading);
 }
 section[data-marpit-pagination]::after {
   content: attr(data-marpit-pagination);
   position: absolute; left: auto; right: var(--number-right); top: var(--number-top); bottom: auto; height: var(--number-height);
   display: flex; align-items: center; justify-content: flex-end; padding: 0;
-  font: var(--body-size) var(--serif); color: var(--ink);
+  font: var(--number-size) var(--serif); color: var(--ink);
 }
+section[data-marpit-pagination="1"]::after { display: none; }   /* the title page goes unnumbered (Marp keeps content) */
 
 /* ---------- photo pages: title page (cover, thanks) and section page ---------- */
 section.title, section.section {
