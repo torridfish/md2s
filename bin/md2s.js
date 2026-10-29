@@ -23,13 +23,13 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --pdf -o out/         write into another folder
 
   md2s --skill                       the Markdown syntax, written for an agent (or you)
-  md2s --check                       which optional tools (Chrome, TeX, ffmpeg, draw.io …) are present
+  md2s --check                       which optional tools (Chrome, TeX, ffmpeg …) are present
   md2s tex2img …                     LaTeX snippet → transparent PNG / SVG (md2s tex2img --help)
-  md2s drawio …                      draw.io source → PNG / SVG (md2s drawio --help)
   md2s --version
 
-Settings live in the deck's front matter (toc, theme …): see md2s --skill. Your own math macros go in
-~/.config/md2s/macros.tex. CHROME_PATH picks the browser Marp renders through.`;
+Settings live in the deck's front matter (toc, bibliography …): see md2s --skill. Your own defaults for
+them go in ~/.config/md2s/config.yaml, your math macros in ~/.config/md2s/macros.tex. Figures are files
+you export yourself (SVG, PNG, PDF …). CHROME_PATH picks the browser Marp renders through.`;
 
 function fail(msg) { process.stderr.write(`md2s: ${msg}\n`); process.exit(2); }
 
@@ -43,17 +43,13 @@ function check() {
     ['pdftocairo (poppler)', has('pdftocairo'), 'LaTeX fences, PDF pages as pictures'],
     ['python3 + Pillow', (() => { try { execFileSync('python3', ['-c', 'import PIL'], { stdio: 'pipe' }); return true; } catch { return false; } })(), 'md2s tex2img size report'],
     ['ffmpeg', has('ffmpeg'), "a video's first frame in PDF / PPTX"],
-    ['draw.io desktop', has('drawio') || has('draw.io') || fs.existsSync('/Applications/draw.io.app') || (() => { try { execFileSync('flatpak', ['info', 'com.jgraph.drawio.desktop'], { stdio: 'pipe' }); return true; } catch { return false; } })(), 'md2s drawio'],
   ];
   for (const [name, ok, why] of rows) console.log(`${ok ? 'ok     ' : 'missing'}  ${name.padEnd(24)} ${why}`);
   if (!fs.existsSync(MARP)) console.log(`missing  node packages            run npm install in ${ROOT}`);
 }
 
 const args = process.argv.slice(2);
-if (args[0] === 'tex2img' || args[0] === 'drawio') {
-  const script = path.join(ROOT, 'scripts', args[0] === 'tex2img' ? 'tex2img.sh' : 'drawio-export.sh');
-  process.exit(spawnSync(script, args.slice(1), { stdio: 'inherit' }).status ?? 1);
-}
+if (args[0] === 'tex2img') process.exit(spawnSync(path.join(ROOT, 'scripts', 'tex2img.sh'), args.slice(1), { stdio: 'inherit' }).status ?? 1);
 
 let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '';
 const formats = [];

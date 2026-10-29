@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Render a LaTeX snippet (an equation, an algorithm2e block, or any body) to PNG and SVG
-# with the local TeX Live, so nothing leaves the machine and the fonts match the
-# draw.io kit's MathJax look (Computer Modern).
+# with the local TeX Live, so nothing leaves the machine; the fonts are Computer Modern, as in the slides' math.
 #
 #   tex2img.sh --math  'a^2 + b^2 = c^2'            -o out/eq1       # inline math, no delimiters
 #   tex2img.sh --display 'E = mc^2'                  -o out/eq2       # displaystyle

@@ -81,6 +81,10 @@ Plain text with `a/config/key`, a [link](https://marp.app), ==work in progress==
 
 ![](assets/curve.png "Fig. 1")
 
+### An SVG: vector, placed at its own size
+
+![](assets/bars.svg "Accuracy (SVG)")
+
 ### Two figures in a row
 
 ![](assets/curve.png "Training") ![](assets/bars.png "Accuracy")

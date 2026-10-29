@@ -28,7 +28,7 @@ for k, (name, base) in enumerate([('Baseline', 60), ('+ Aug', 64), ('Ours', 69)]
     ax.bar(np.arange(4) + (k - 1) * w, base + rng.uniform(-4, 6, 4), w, color=C[k], label=name)
 ax.set_xticks(range(4), [f'Bench {b}' for b in 'ABCD']); ax.set_ylabel('accuracy (%)'); ax.set_ylim(40, 80)
 ax.legend(frameon=False, ncol=3, loc='upper center', bbox_to_anchor=(0.5, 1.12))
-fig.tight_layout(); fig.savefig('bars.png'); plt.close(fig)
+fig.tight_layout(); fig.savefig('bars.png'); fig.savefig('bars.svg'); plt.close(fig)
 
 # scatter: embeddings of three classes
 fig, ax = plt.subplots(figsize=(3.6, 3), dpi=200)

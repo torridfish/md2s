@@ -183,9 +183,25 @@ function imageSize(file) {
   return null;
 }
 /** 1:1 width in CSS px for a local figure (exports are 2x: 192 px per inch on a 96 px/in canvas). */
+/** An SVG's own size in CSS px: its width / height (px, pt, in, cm, mm or no unit), else its viewBox. */
+function svgSize(file) {
+  let tag;
+  try { tag = (fs.readFileSync(file, 'utf8').match(/<svg\b[^>]*>/) || [])[0]; } catch { return null; }
+  if (!tag) return null;
+  const PX = { '': 1, px: 1, pt: 4 / 3, pc: 16, in: 96, cm: 96 / 2.54, mm: 96 / 25.4 };
+  const len = (k) => { const m = tag.match(new RegExp(`\\s${k}="\\s*([\\d.]+)\\s*(px|pt|pc|in|cm|mm)?\\s*"`)); return m ? Number(m[1]) * PX[m[2] || ''] : null; };
+  const vb = (tag.match(/viewBox="\s*[-\d.]+[\s,]+[-\d.]+[\s,]+([\d.]+)[\s,]+([\d.]+)\s*"/) || []).slice(1).map(Number);
+  const w = len('width') || vb[0], h = len('height') || vb[1];
+  if (w && h) return { w, h };
+  return w && vb.length ? { w, h: (w * vb[1]) / vb[0] } : null;
+}
+/** The size md2s places a local picture at (1:1): a bitmap is taken as a 2x export (px / 2), an SVG at its
+    own size. */
 function naturalSize(src) {
   if (!src || /^[a-z]+:/i.test(src)) return null;
-  const size = imageSize(path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(src)));
+  const file = path.resolve(process.env.MD2S_DECK_DIR || process.cwd(), decodeURI(src));
+  if (/\.svg$/i.test(file)) return svgSize(file);
+  const size = imageSize(file);
   return size ? { w: size.w / 2, h: size.h / 2 } : null;
 }
 
@@ -559,6 +575,16 @@ function frontMatter(src) {
   if (!m) return {};
   try { return require('yaml').parse(m[1]) || {}; } catch { return {}; }
 }
+// A deck's settings: md2s's defaults, then the user's ~/.config/md2s/config.yaml, then the front matter.
+const DEFAULTS = { 'toc-standalone': ['TODO', 'Appendix', 'References'] };
+const USER_CONFIG = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'md2s', 'config.yaml');
+function settings(src) {
+  let user = {};
+  try { user = require('yaml').parse(fs.readFileSync(USER_CONFIG, 'utf8')) || {}; } catch (e) {
+    if (e.code !== 'ENOENT') warn(`${USER_CONFIG}: ${e.message}`);
+  }
+  return { ...DEFAULTS, ...user, ...frontMatter(src) };
+}
 function cslStyle(name) {
   const cfg = require('@citation-js/core').plugins.config.get('@csl');
   const file = name === 'ieee' ? path.join(ROOT, 'csl', 'ieee.csl')
@@ -573,7 +599,7 @@ function cslStyle(name) {
 }
 const warn = (msg) => process.stderr.write(`md2s: ${msg}\n`);
 function citations(src) {
-  const meta = frontMatter(src);
+  const meta = settings(src);
   if (!meta.bibliography) return src;
   const { Cite, plugins } = require('@citation-js/core');
   require('@citation-js/plugin-bibtex');
@@ -630,10 +656,9 @@ function citations(src) {
 
 /** front matter `toc: true` (or `toc: Title`): a contents slide after the first slide, filled in by tocs() */
 function insertToc(src) {
-  const fm = src.match(/^---\n([\s\S]*?)\n---/);
-  const m = fm && fm[1].match(/^toc:\s*(.+?)\s*$/m);
-  if (!m || /^(false|no|off)$/i.test(m[1])) return src;
-  const title = /^(true|yes|on)$/i.test(m[1]) ? 'Outline' : m[1];
+  const toc = settings(src).toc;
+  if (!toc || /^(false|no|off)$/i.test(String(toc))) return src;
+  const title = toc === true || /^(true|yes|on)$/i.test(String(toc)) ? 'Outline' : String(toc);
   const lines = src.split('\n');
   const divided = DIVIDED.test(src);
   let started = false, at = -1;
@@ -682,17 +707,24 @@ function tocs(md) {
     const groups = [];
     let section = null, last = null;
     const sub = (g, h, sl) => { if (h && !g.subs.some((x) => x.text === h.text)) g.subs.push({ ...h, slide: sl.slide }); };
+    // ## categories that belong to the whole deck (toc-standalone: TODO, Appendix, References by default)
+    // are entries of their own after everything else, wherever their slides are
+    const standalone = new Set([].concat((state.env.md2s || {})['toc-standalone'] || []).map((x) => String(x).toLowerCase()));
+    const tail = [];
     for (const sl of slides) {
+      if (!sl.h1 && (sl.refs || (sl.h2 && standalone.has(sl.h2.text.toLowerCase())))) {
+        const key = sl.h2 ? sl.h2.text.toLowerCase() : 'references';
+        let g = tail.find((x) => x.key === key);
+        if (!g) tail.push((g = { ...(sl.h2 || { text: 'References', html: 'References' }), slide: sl.slide, subs: [], key }));
+        if (!sl.refs) sub(g, sl.h3, sl);
+        last = null;
+        continue;
+      }
       if (sl.h1) {
         last = null;
         if (sl.h1.divider) continue;
         section = sectioned ? { ...sl.h1, slide: sl.slide, subs: [], section: true } : null;
         if (section) groups.push(section);
-        continue;
-      }
-      if (sl.refs) {
-        if (!groups.some((g) => g.refs)) groups.push({ ...sl.h2, slide: sl.slide, subs: [], refs: true });
-        section = null; last = null;
         continue;
       }
       if (section) { sub(section, sl.h3 || sl.h2, sl); continue; }
@@ -702,7 +734,7 @@ function tocs(md) {
     const li = (g) => `<li><a href="#${g.slide}">${g.html}</a>` +
       (g.subs.length ? `<ul>${g.subs.map((x) => `<li><a href="#${x.slide}">${x.html}</a></li>`).join('')}</ul>` : '') + '</li>';
     // a section with nothing after it (the thanks page) is not an entry
-    toks[at].content = `<div class="toc"><ul>${groups.filter((g) => !g.section || g.subs.length).map(li).join('')}</ul></div>\n`;
+    toks[at].content = `<div class="toc"><ul>${[...groups.filter((g) => !g.section || g.subs.length), ...tail].map(li).join('')}</ul></div>\n`;
   });
 }
 
@@ -928,7 +960,7 @@ module.exports = ({ marp }) => {
   const parse = marp.markdown.parse.bind(marp.markdown);
   // the deck's front matter reaches the renderers through env.md2s (line-numbers …)
   marp.markdown.parse = (src, env = {}) => {
-    env.md2s = frontMatter(src);
+    env.md2s = settings(src);
     return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
   };
   // md2s --html / --serve: the presenting tools (laser, pen, click to turn) go in after the slides

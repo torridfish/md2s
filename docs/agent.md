@@ -15,8 +15,8 @@ md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
 md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
 md2s deck.md --thanks-text "Questions?"   # the same page with other words
-md2s --check                       # which optional tools (TeX, ffmpeg, draw.io …) are installed
-md2s tex2img --display 'E = mc^2' -o eq    # a standalone formula picture; md2s drawio f.drawio for draw.io
+md2s --check                       # which optional tools (TeX, ffmpeg …) are installed
+md2s tex2img --display 'E = mc^2' -o eq    # a standalone formula picture
 ```
 
 ## Front matter
@@ -31,10 +31,16 @@ toc: true             # a contents slide after the first one ("Outline"; `toc: C
 bibliography: refs.bib        # BibTeX: a path (relative to the deck), a list of paths, or entries written in place
 citation-style: apa           # the default; ieee, vancouver, harvard1, or a .csl file
 line-numbers: true            # the default; false drops line numbers from every code block
+toc-standalone: [TODO, Appendix, References]   # the default; ## categories the contents slide lists apart
 ---
 ```
 
-Every setting lives here, in the deck; the command line only chooses outputs.
+Every setting lives here, in the deck; the command line only chooses outputs. Defaults you want in every
+deck go in `~/.config/md2s/config.yaml` with the same keys; a deck's front matter overrides them.
+
+Headings have three jobs: `#` alone is a **section page**, a chapter of the talk (usually the question its
+slides answer); `##` is the slide's **category** (Setup, Experiment, Analysis, TODO …), a label that repeats
+rather than a level; `###` is the slide's **title**, its one message. The contents slide is built on that.
 
 ## Citations
 
@@ -55,8 +61,10 @@ bibliography: |              # a few entries need no .bib file
 The contents slide lists the deck in two columns, each line linking to its slide. With section pages
 (`# Title` alone), each section is an entry with the `###` of its slides under it (the `##` categories would
 only repeat); without them, each `##` is an entry with its `###` under it, a run of slides under the same
-`##` being one entry. Part numbers like `(1/2)` are dropped, so the parts are one line; the References
-slides are an entry of their own; the thanks page and `{.divider}` pages are left out.
+`##` being one entry. The `##` categories in `toc-standalone` (TODO, Appendix and References unless set
+otherwise) belong to the whole deck: they are entries of their own after everything else, wherever their
+slides are. Part numbers like `(1/2)` are dropped, so the parts are one line; the thanks page and
+`{.divider}` pages are left out.
 
 A run of slides under the same title writes the `##` once: a `###` after another `###` starts the next
 slide with the same `##`.
@@ -208,7 +216,7 @@ so people on the same network can open the deck while it runs.
 | paragraphs | body text, 11pt, no paragraph spacing |
 | `- item` / `1. item` | round bullets, numbers, `a.` for a nested ordered list; markers line up with paragraph text and wrapped lines with the item's text; each level two characters further in |
 | `➔ consequence` (a paragraph) | drawn as →; wrapped lines start after the arrow; right after a list it lines up with the list's text |
-| a paragraph of only images | one centred figure row, 0.25in apart; each picture at 1:1 (a 2x export at px/192 in), shrunk only when the row or the body is too small |
+| a paragraph of only images | one centred figure row, 0.25in apart; each picture at 1:1, shrunk only when the row or the body is too small: a PNG / JPEG / GIF is taken as a 2x export (px / 2), an SVG is placed at its own width and height (export diagrams as SVG yourself; md2s reads no editor files) |
 | `![w:300](f.png)` | Marp's size keywords still work for one picture |
 | `$x_i$`, `$$ … $$`, ```` ```math ```` | KaTeX, Computer Modern, selectable and searchable in the PDF; inline math at the body size, display math centred at 1.2x the body |
 | `\begin{equation} … \end{equation}` inside `$$` | numbered (1), (2) … in order through the deck, the number at the right edge; `align` / `gather` number each row (`\notag` skips one), the starred forms and plain `$$` are unnumbered, `\tag{A.1}` sets a number by hand |

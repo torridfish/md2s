@@ -17,9 +17,9 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 ## Install
 
 ```bash
-git clone … ~/Code/md2s && cd ~/Code/md2s
+git clone …
 npm install && npm link        # puts md2s on the PATH
-md2s --check                   # Chrome is required; TeX, ffmpeg, draw.io only for their features
+md2s --check                   # Chrome is required; TeX and ffmpeg only for their features
 ```
 
 ## Use
@@ -32,7 +32,8 @@ md2s --skill                   # every bit of syntax, written for an agent (or y
 ```
 
 `examples/gallery.md` shows every slide type and component; render it after changing the theme.
-Your own math macros go in `~/.config/md2s/macros.tex`.
+Your own defaults (any front matter setting) go in `~/.config/md2s/config.yaml`, your math macros in
+`~/.config/md2s/macros.tex`. Figures are files you export yourself: SVG, PNG, PDF, GIF, video.
 
 The cover photo in `themes/` is the author's own. `csl/ieee.csl` is from the
 [CSL project](https://github.com/citation-style-language/styles), CC BY-SA 3.0.
