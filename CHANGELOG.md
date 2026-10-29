@@ -3,6 +3,39 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
+## Unreleased
+
+From a stress test that converted 18 real PowerPoint decks and compared every page (F1–F13 in its report).
+
+### Added
+
+- A layout check after every build (not `--watch`; `--no-check` skips it): md2s lays the deck out again in
+  the browser and warns, by slide, about a body taller than its box, anything past the margins or the
+  slide's edge, a heading over the header, and a title or subtitle on a third line. Chrome cuts all of
+  these without a word. (F1)
+- A warning when slides get a second `##` without `headingDivider`, which leaves a deck as one slide. (F12)
+
+### Changed
+
+- A `##` or `###` too long for one line wraps to a second, and the line under the header and the body move
+  down; it used to be cut mid-word. One-line headers sit exactly where they did. (F8)
+- A token longer than the line breaks instead of running off the slide, and a table is at most as wide as
+  its box, its cells breaking words when nothing else fits. (F7, F3)
+- A column headed `Role` is md2s's row-role column only when every value is a role word; otherwise it is
+  data and stays. (F11)
+- Braces at the end of a line are attributes only when they hold attribute syntax (`{.class}`, `{#id}`,
+  `{key=value}`); `{Task query}` prints as written. (F6)
+
+### Fixed
+
+- Two tables one blank line apart were read as one, the second's header as a row and its `---` row as
+  cells. (F2)
+- A `---` at the end of the deck, or two in a row, made an empty slide and a bogus `(2/2)`. (F4)
+- A deck whose first line is `---` with no front matter after it lost its first slide, or every slide. (F5)
+- A heading further down a slide was painted over the slide's title. (F9)
+- An empty table header row showed as a grey band. (F10)
+- A `>` further down a slide had no gap from a table above it. (F13)
+
 ## 0.2.1 (2026-10-30)
 
 ### Fixed
