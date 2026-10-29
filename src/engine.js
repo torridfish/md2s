@@ -318,7 +318,23 @@ function figures(md) {
   };
 }
 
-// ---------- tables: role column, settings variant ----------
+// ---------- tables: spans, role column, settings variant ----------
+// multimd-table already sets every || colspan and ^^ rowspan, but markdown-it-attrs reads them as its own
+// {rowspan=} / {colspan=} and, counting columns from the last header row only, hides cells it thinks the span
+// pushed out (a ^^ row under a header with || or two rows lost its last cells). The spans are moved out of its
+// sight while it runs; md2s does not let attrs set them anyway.
+function spansPastAttrs(md) {
+  const hide = { rowspan: 'md2s-rowspan', colspan: 'md2s-colspan' };
+  const show = { 'md2s-rowspan': 'rowspan', 'md2s-colspan': 'colspan' };
+  const rename = (names) => (state) => {
+    for (const t of state.tokens) {
+      if ((t.type === 'th_open' || t.type === 'td_open') && t.attrs) for (const a of t.attrs) a[0] = names[a[0]] || a[0];
+    }
+  };
+  md.core.ruler.before('curly_attributes', 'rs_spans_hide', rename(hide));
+  md.core.ruler.after('curly_attributes', 'rs_spans_show', rename(show));
+}
+
 // A `role` column gives each row its class (ref / a / b tint it, hl highlights, mute greys out, sep rules it
 // off; any other word is a class too) and is not shown.
 function tables(md) {
@@ -996,6 +1012,7 @@ module.exports = ({ marp }) => {
     // MultiMarkdown tables: || spans the next column, ^^ the row above, two header rows, [Caption]
     .use(require('markdown-it-multimd-table'), { multiline: false, rowspan: true, headerless: false, multibody: true })
     .use(require('markdown-it-attrs'), { allowedAttributes: ['class', 'style', 'scale', 'path', 'start'] })
+    .use(spansPastAttrs)
     .use(require('markdown-it-container'), 'area', {
       validate: (params) => /^[A-Za-z][\w-]*(\s+[\w-]+)*$/.test(params.trim()),
       render: (tokens, idx) => {

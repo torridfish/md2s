@@ -238,13 +238,13 @@ digraph { rankdir=LR; node [shape=box]; data -> features -> model -> metrics }
 
 ### Table styles: booktabs, merged cells and a caption
 
-|       | Bench A    || Bench B    ||
-| Model | acc | F1   | acc  | F1   |
+| Model | Bench A    || Bench B    ||
+| ^^    | acc | F1   | acc  | F1   |
 | :--   | :-: | :-:  | :-:  | :-:  |
 | Baseline | 61.2 | 58.0 | 54.0 | 50.3 |
 | Ours  | 68.9 {.best} | 64.1 {.best} | 61.2 {.best} | 57.7 {.best} |
 | ^^    | 67.5 | 63.0 | 60.4 | 56.9 |
-[Two seeds of Ours; `||` spans the next column, `^^` the row above]
+[Two seeds of Ours; `||` spans the next column, `^^` the row above, in the header too]
 
 {.booktabs}
 
