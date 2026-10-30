@@ -68,3 +68,18 @@ $$
 ### Subtitle
 
 - body
+
+## Math
+### Twin test: change one number $v \to v + 1$ in a subtitle, one line and no warning
+
+- KaTeX keeps a hidden MathML copy of every formula; the check measures what is painted
+
+## Math
+### A numbered display formula that fits draws no warning
+
+$$
+\begin{equation}
+\boxed{\;\langle\mathbf e,\hat{\boldsymbol\Delta}\rangle>-\frac{\lVert\boldsymbol\Delta\rVert}{2}-\frac{\tau^2}{\lVert\boldsymbol\Delta\rVert}\log\frac{\pi(r)}{\pi(r')}\;}\qquad \hat{\mathbf z}=\boldsymbol\mu(r)+\mathbf e,\ \ \boldsymbol\Delta=\boldsymbol\mu(r)-\boldsymbol\mu(r')
+\label{eq:fits}
+\end{equation}
+$$

@@ -21,20 +21,31 @@ function measure(slack) {
   // what reached farthest, for the message (inside the body: Marp wraps the whole slide in an <svg> too)
   const name = (el) => (el.closest('h1, h2, h3') ? 'a heading' : el.closest('.katex') ? 'a formula' : el.closest('table') ? 'a table' : el.closest('.code, pre') ? 'a code block'
     : el.closest('.diagram') ? 'a diagram' : el.closest('img, video, iframe, .figures') ? 'a picture' : 'text');
+  // KaTeX keeps a MathML copy of each formula (and its TeX) for screen readers and copying: laid out, clipped,
+  // never painted, and wider than the formula. The check reads only what is painted.
+  const unpainted = (n) => (n.nodeType === Node.ELEMENT_NODE && n.classList.contains('katex-mathml') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT);
+  const painted = (el) => {
+    const nodes = [];
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, unpainted);
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeType === Node.TEXT_NODE) nodes.push(n);
+    return nodes;
+  };
   document.querySelectorAll('section').forEach((s, k) => {
     const S = s.getBoundingClientRect();
     const scale = S.width / 960;   // Marp scales the slide to the page; measure on its own 960 x 540 canvas
     const box = (r) => ({ top: (r.top - S.top) / scale, bottom: (r.bottom - S.top) / scale, left: (r.left - S.left) / scale, right: (r.right - S.left) / scale });
     // named by its ### (its own message); a ## is a category many slides share
     const heading = s.querySelector(':scope > h3') || s.querySelector(':scope > h2') || s.querySelector(':scope > h1');
-    const full = heading ? heading.textContent.trim().replace(/\s+/g, ' ') : '';
+    const full = heading ? painted(heading).map((n) => n.textContent).join('').trim().replace(/\s+/g, ' ') : '';
     const label = full.length > 50 ? `${full.slice(0, 48)}…` : full;
     const add = (what) => issues.push({ slide: k + 1, label, what });
 
     for (const h of s.querySelectorAll(':scope > h2, :scope > h3')) {
-      const r = document.createRange();
-      r.selectNodeContents(h);
-      const tops = new Set([...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(box(q).top)));
+      const tops = new Set(painted(h).flatMap((n) => {
+        const r = document.createRange();
+        r.selectNodeContents(n);
+        return [...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(box(q).top));
+      }));
       if (tops.size > 2) add(`the ${h.tagName === 'H2' ? 'title' : 'subtitle'} takes ${tops.size} lines (two fit)`);
     }
 
@@ -50,7 +61,7 @@ function measure(slack) {
       if (r.left < far.left[0]) far.left = [r.left, el];
       if (r.top < far.top[0]) far.top = [r.top, el];
     };
-    const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    const walk = document.createTreeWalker(body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, unpainted);
     for (let n = walk.nextNode(); n; n = walk.nextNode()) {
       if (n.nodeType === Node.TEXT_NODE) {
         if (!n.textContent.trim()) continue;
