@@ -18,11 +18,13 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
   math in a `###` no longer counts as extra lines, and a formula that fits is not reported as running off.
   A formula that does run off is reported by its visible width (`test/overflow.md` slide 5: 38px, where
   the hidden copy had made it 445px).
-  Known, not fixed: on one deck (2026-10-31, slide 31, `img-left`) the check's own page sized the image
-  column at the PNG's natural width and squeezed the text column to nothing, so it warned about a slide
-  that renders fine. It happened on every run of one copy of the deck and on no run of the deck in place.
-  If it comes back, first make the check wait until every `document.images` is decoded and the fonts are
-  loaded before measuring, before touching the grid styles.
+  Known, not fixed: a false warning was seen in one environment (on every run there) on an `img-left`
+  slide whose body is a picture ("text runs Npx below the body", "a formula runs Npx past the right
+  margin") while the PDF page itself was fine: the check's page sized the picture's column at the PNG's
+  natural width and squeezed the text column to nothing. Not reproduced in place (5 runs), from a plain
+  copy of the deck folder with its figures (2 runs), or from a synthetic `img-left` slide (3 runs); the
+  cause is unknown and may be the environment the check page runs in. If it recurs, wait for
+  `document.images` to decode and for fonts to load before measuring, rather than changing the grid styles.
 - A warning when slides get a second `##` without `headingDivider`, which leaves a deck as one slide. (F12)
 
 ### Changed
