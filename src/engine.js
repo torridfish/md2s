@@ -453,10 +453,28 @@ function tables(md) {
         if (toks[j].type === 'tr_close') rows[rows.length - 1].close = j;
         if (toks[j].type === 'th_open' || toks[j].type === 'td_open') rows[rows.length - 1].cells.push({ open: j, inline: j + 1, close: j + 2 });
       }
-      const text = (c) => toks[c.inline].content.trim();
+      // a cell's text without its {.x} (markdown-it-attrs takes the class off the tokens, not off the source)
+      const text = (c) => toks[c.inline].content.replace(/\{([^{}]*)\}/g, (m, inner) => (ATTRS.test(inner) ? '' : m)).trim();
+      const classOnly = (r) => r.cells.every((c) => !text(c)) && r.cells.some((c) => toks[c.open].attrGet('class'));
+      // {.best} / {.second} written on a cell's bold or italic (**91.2**{.best}) belong to the cell
+      for (const r of rows) for (const c of r.cells) {
+        let depth = 0;
+        for (const t of toks[c.inline].children || []) {
+          if (depth === 0 && t.nesting === 1) {
+            const cls = (t.attrGet('class') || '').split(/\s+/).filter(Boolean);
+            const own = cls.filter((x) => x === 'best' || x === 'second');
+            if (own.length) {
+              for (const x of own) toks[c.open].attrJoin('class', x);
+              const rest = cls.filter((x) => !own.includes(x));
+              if (rest.length) t.attrSet('class', rest.join(' ')); else t.attrs = t.attrs.filter((a) => a[0] !== 'class');
+            }
+          }
+          depth += t.nesting;
+        }
+      }
       // `{.settings}` right under the table: GFM made it a last row whose cell took the class
       const last = rows[rows.length - 1];
-      if (rows.length > 2 && last.cells.every((c) => !text(c)) && last.cells.some((c) => toks[c.open].attrGet('class'))) {
+      if (rows.length > 2 && classOnly(last)) {
         for (const c of last.cells) { const cls = toks[c.open].attrGet('class'); if (cls) toks[i].attrJoin('class', cls); }
         for (let k = last.open; k <= last.close; k++) drop.add(k);
         // the row alone in its row group (a blank line above it): the group goes too
@@ -475,24 +493,55 @@ function tables(md) {
         }
       }
       // each cell's column, counting the columns a ^^ cell above still covers and the || spans before it
-      let covered = [];
-      for (const r of rows) {
-        const next = covered.map((n) => Math.max(0, n - 1));
-        let col = 0;
-        for (const c of r.cells) {
-          while (covered[col] > 0) col++;
-          c.col = col;
-          c.span = Number(toks[c.open].attrGet('colspan')) || 1;
-          for (let k = 0; k < c.span; k++) next[col + k] = (Number(toks[c.open].attrGet('rowspan')) || 1) - 1;
-          col += c.span;
+      const columns = () => {
+        let covered = [];
+        for (const r of rows) {
+          const next = covered.map((n) => Math.max(0, n - 1));
+          let col = 0;
+          for (const c of r.cells) {
+            while (covered[col] > 0) col++;
+            c.col = col;
+            c.span = Number(toks[c.open].attrGet('colspan')) || 1;
+            c.rows = Number(toks[c.open].attrGet('rowspan')) || 1;
+            for (let k = 0; k < c.span; k++) next[col + k] = c.rows - 1;
+            col += c.span;
+          }
+          covered = next;
         }
-        covered = next;
-      }
+      };
+      columns();
       const at = (r, col) => r.cells.find((c) => c.col <= col && col < c.col + c.span);
+      const isBody = (r) => r.cells.length && toks[r.cells[0].open].type === 'td_open';
+      const setRows = (c, n) => { c.rows = n; if (n > 1) toks[c.open].attrSet('rowspan', String(n)); else toks[c.open].attrs = (toks[c.open].attrs || []).filter((a) => a[0] !== 'rowspan'); };
+      // a row of nothing but a class inside the table (| {.sep} |) is no row: the class goes to the row under
+      // it (sep: a rule above that row). A cell above that spans through it loses that row; a ^^ under it, which
+      // multimd joined to its empty cell, joins the cell above it instead.
+      for (let d = rows.length - 2; d >= 1; d--) {
+        const r = rows[d];
+        if (!isBody(r) || !isBody(rows[d - 1]) || !classOnly(r)) continue;
+        for (let k = 0; k < d; k++) for (const c of rows[k].cells) if (k + c.rows - 1 >= d) setRows(c, c.rows - 1);
+        for (const c of r.cells) {
+          if (c.rows < 2) continue;
+          for (let k = d - 1; k >= 0; k--) {
+            const up = rows[k].cells.find((u) => u.col === c.col && k + u.rows - 1 >= d - 1);
+            if (up) { setRows(up, up.rows + c.rows - 1); break; }
+          }
+        }
+        for (const c of r.cells) { const cls = toks[c.open].attrGet('class'); if (cls) toks[rows[d + 1].open].attrJoin('class', cls); }
+        for (let k = r.open; k <= r.close; k++) drop.add(k);
+        rows.splice(d, 1);
+      }
+      columns();
+      // a row wider than the header extends the table by columns without a header cell
+      const width = (rs) => Math.max(0, ...rs.flatMap((r) => r.cells.map((c) => c.col + c.span)));
+      const headRows = rows.filter((r) => !isBody(r));
+      if (headRows.length) {
+        const wide = rows.filter((r) => isBody(r) && width([r]) > width(headRows));
+        if (wide.length) warn(`a table row has more cells than its header (${width(wide)} columns, the header ${width(headRows)}): the extra cells have no header above them (row "${wide[0].cells.map(text).join(' | ')}")`);
+      }
       // a `role` column (headed role in any header row) only when every value in the body rows is a role word,
       // x, - or empty (an untinted row): a table whose Role column holds data keeps it. A header row's cell in
       // it is the grouped header's placeholder (x, -, ^^) and goes with the column.
-      const isBody = (r) => r.cells.length && toks[r.cells[0].open].type === 'td_open';
       const UNTINTED = ['', 'x', '-'];
       const roleWords = (s) => UNTINTED.includes(s) || s.split(/\s+/).every((w) => ROLES.includes(w));
       const head = rows.some((r) => !isBody(r)) ? rows.filter((r) => !isBody(r)) : rows.slice(0, 1);
@@ -506,14 +555,20 @@ function tables(md) {
         if (c !== roleHead && !UNTINTED.includes(text(c)) && isBody(r)) toks[r.open].attrJoin('class', text(c));
         for (const x of [c.open, c.inline, c.close]) drop.add(x);
       }
-      const ri = rc >= 0 ? rows[0].cells.findIndex((c) => c.col === rc) : -1;
       if ((toks[i].attrGet('class') || '').includes('settings')) {
-        // body rows are the td rows (a header may have two); a column a ^^ or || leaves a row short of counts as long
+        // settings sets its own alignment (left, short columns centred): the separator row's colons give way
+        for (const r of rows) for (const c of r.cells) {
+          const st = (toks[c.open].attrGet('style') || '').replace(/text-align:\s*\w+;?/, '').trim();
+          if (st) toks[c.open].attrSet('style', st); else toks[c.open].attrs = (toks[c.open].attrs || []).filter((a) => a[0] !== 'style');
+        }
+        // a column is short when each body cell that starts in it (one column wide) holds 3 characters or fewer;
+        // a cell a ^^ above covers, or a || spans, does not count
         const body = rows.filter(isBody);
-        rows[0].cells.forEach((_, col) => {
-          if (col === ri || !body.length) return;
-          if (body.every((r) => r.cells[col] && text(r.cells[col]).length <= 3)) for (const r of body) toks[r.cells[col].open].attrJoin('class', 'c');
-        });
+        for (let col = 0; col < width(rows); col++) {
+          if (col === rc || !body.length) continue;
+          const cells = body.map((r) => r.cells.find((c) => c.col === col && c.span === 1)).filter(Boolean);
+          if (cells.length && cells.every((c) => text(c).length <= 3)) for (const c of cells) toks[c.open].attrJoin('class', 'c');
+        }
       }
       i = end;
     }

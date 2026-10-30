@@ -47,6 +47,71 @@ User: hello {Task query}
 
 - a bullet ending in braces {Task response}
 
+## Tables
+### Best and second on a bold cell mark the cell
+
+| Method | Acc |
+| --- | --- |
+| Ours | **best-on-bold**{.best} |
+| Base | *second-on-italic*{.second} |
+
+## Tables
+### A row of only {.sep} rules off the row under it
+
+| A | B |
+| --- | --- |
+| merged-down | 1 |
+| {.sep} |
+| ^^ | under-the-rule |
+| c | 3 |
+
+## Tables
+### A class row of its own under the table styles it
+
+| Method | Acc |
+| :-- | --: |
+| booktabs-row | 1 |
+| Base | 2 |
+
+| {.booktabs} |
+
+## Tables
+### Settings centres short columns whatever the colons say
+
+| Split | Run | Accuracy |
+| :-- | --: | --: |
+| settings-colons | 1 | 68.9 |
+| test | 2 | 61.2 |
+
+{.settings}
+
+## Tables
+### Settings finds columns past a ^^
+
+| Dataset | Run | settings-caret |
+| --- | --- | --- |
+| A | 1 | 68.9 |
+| ^^ | 2 | 61.2 |
+| C | 3 | 55.1 |
+
+{.settings}
+
+## Tables
+### A row wider than the header is warned about
+
+| A | B |
+| --- | --- |
+| ragged-row | 2 | 3 | 4 |
+| 5 | 6 |
+
+## Tables
+### A caption on the line above the table
+
+[caption-above-the-table]
+| A | B |
+| --- | --- |
+| 1 | 2 |
+
 ## Parts
 ### A subsection ends
 

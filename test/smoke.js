@@ -83,16 +83,31 @@ const deck = (name) => {
 };
 const cases = deck('cases.md');
 const sections = (cases.html.match(/<section\b/g) || []).length;
-check(sections === 6, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 6 expected)`);
+check(sections === 13, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 13 expected)`);
 check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
 const tables = (cases.html.match(/<table\b/g) || []).length;
-check(tables === 5 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 5 expected), no --- cells`);
+check(tables === 12 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 12 expected), no --- cells`);
 check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
 check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
 check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
 check(!/>role</.test(cases.html) && /<tr class="ref">/.test(cases.html) && /<tr>\s*<td[^>]*>8<\/td>\s*<td[^>]*>grouped-x-row/.test(cases.html),
   'a role column under a grouped header (x, ^^ placeholders, an x row) is not shown');
 check(cases.html.includes('hello {Task query}') && cases.html.includes('braces {Task response}'), 'braces that are not attributes stay text');
+// the table holding a marker, as one line
+const table = (marker) => ((cases.html.match(/<table[\s\S]*?<\/table>/g) || []).find((t) => t.includes(marker)) || '').replace(/\n\s*/g, '');
+check(/<td class="best"><strong>best-on-bold<\/strong>/.test(table('best-on-bold')) && /<td class="second"><em>second-on-italic<\/em>/.test(table('best-on-bold')),
+  '{.best} / {.second} on a bold or italic cell mark the cell');
+const sep = table('under-the-rule');
+check(/<td rowspan="2">merged-down<\/td>/.test(sep) && /<tr class="sep"><td>under-the-rule<\/td>/.test(sep) && (sep.match(/<tr\b/g) || []).length === 4,
+  'a row of only {.sep} goes, and rules off the row under it; a ^^ under it joins the cell above');
+check(/<table class="booktabs">/.test(table('booktabs-row')) && (table('booktabs-row').match(/<tr\b/g) || []).length === 3,
+  'a | {.booktabs} | row under the table styles it and leaves no empty row');
+check(/<td class="c">1<\/td>/.test(table('settings-colons')) && !/text-align/.test(table('settings-colons')),
+  "settings sets its tables' alignment over the separator row's colons, and centres short columns");
+check(/<td rowspan="2" class="c">A<\/td><td class="c">1<\/td><td>68\.9<\/td>/.test(table('settings-caret')) && /<tr><td class="c">2<\/td><td>61\.2<\/td>/.test(table('settings-caret')),
+  'settings centres short columns by column, past a ^^');
+check(/more cells than its header \(4 columns, the header 2\)[^\n]*ragged-row/.test(cases.err), 'a row wider than the header is warned about');
+check(/<caption[^>]*>caption-above-the-table<\/caption>/.test(table('caption-above-the-table')), 'a [Caption] on the line above a table is its caption');
 
 const plain = deck('no-divider.md');
 check(/not front matter/.test(plain.err) && /<h3[^>]*>A deck whose first line is ---/.test(plain.html), 'a leading --- that opens no front matter keeps the first slide, and says so');

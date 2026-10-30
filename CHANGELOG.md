@@ -53,6 +53,16 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
 - A heading further down a slide was painted over the slide's title. (F9)
 - An empty table header row showed as a grey band. (F10)
 - A `>` further down a slide had no gap from a table above it. (F13)
+- `**91.2**{.best}` (and `{.second}`) put the class on the bold text, so the cell had no tint; it marks the
+  cell now.
+- A row of only `| {.sep} |` drew an empty row and no rule; it is no row now, and rules off the row under
+  it. A `^^` right under it joins the cell above, across the rule.
+- `| {.booktabs} |` (any class) as a row of its own under a table left an empty row and styled nothing.
+- `{.settings}` did not centre its short columns when the separator row had colons (`:--`, `--:`), whose
+  alignment won; settings now sets the alignment itself. Behind a `^^` it centred the wrong column.
+- A row with more cells than the header now draws a warning; the extra cells still extend the table.
+- `--skill` now says a `[Caption]` must touch the table (no blank line) to be its caption, above or below;
+  a caption above always worked so.
 
 ## 0.2.1 (2026-10-30)
 

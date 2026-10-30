@@ -237,10 +237,12 @@ so people on the same network can open the deck while it runs.
 | ` ```prompt ` | prompt template as text: `System:` bold, `{placeholder}` bold red, `<\|im_start\|>` on mark-blue |
 | a table | results table, centred and compact (1px cell padding): bold header on gray, 9pt (smaller, down to 6px, when its words would not fit the box otherwise; a number or word is never split), hairline grid; cells centred unless the separator row says `:--` (left), `:-:` or `--:` (right) |
 | a `role` column | each row's class, and the column is not shown: `ref` gray, `a` blue, `b` orange, `hl` highlighted, `mute` greyed out, `sep` a rule above the row (several may combine, `a sep`), `x`, `-` or an empty cell leave the row untinted; under a grouped header the column's cells in the other header row are placeholders (`x`, `-`, `^^`); a column headed Role holding any other value is data and stays |
-| `\| 68.9 {.best} \|`, `{.second}` | one cell: the best number bold on a tint, the runner-up underlined |
-| a table, a blank line, `{.booktabs}` | the table's style: `grid` (the default), `booktabs` (top, header and bottom rules only), `plain` (no lines), `striped` (every other row tinted), `settings` (blue header, left-aligned, short columns centred); classes combine |
+| `\| 68.9 {.best} \|`, `{.second}` | one cell: the best number bold on a tint, the runner-up underlined; `**68.9**{.best}` marks the cell too |
+| a row of only `\| {.sep} \|` | not a row: a rule above the row under it (any class written so goes to that row) |
+| a table, a blank line, `{.booktabs}` | the table's style: `grid` (the default), `booktabs` (top, header and bottom rules only), `plain` (no lines), `striped` (every other row tinted), `settings` (blue header, left-aligned, short columns centred, whatever the separator row's colons say); classes combine; `\| {.booktabs} \|` as a row of its own works the same |
 | `\|\|` at the end of a cell, `^^` as a cell | the cell spans the next column / joins the cell above (MultiMarkdown); two header rows before the separator make a grouped header |
-| `[Caption]` on the line right after a table | a caption under it (before it: above) |
+| `[Caption]` on the line right after a table, no blank line between | a caption under it; on the line right before it: above (a blank line between makes it a paragraph) |
+| a row with more cells than the header | extends the table by columns without a header cell; md2s warns |
 | `<hr class="rule">` | body rule splitting the page |
 | `<!-- text -->` | speaker notes |
 
