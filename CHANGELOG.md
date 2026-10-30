@@ -3,12 +3,45 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
-## 0.2.2 (2026-10-30)
+## 0.3.0 (2026-10-30)
 
-From a stress test that converted 18 real PowerPoint decks and compared every page (F1–F13 in its report),
-then a second pass over tables (best on bold cells, class rows, `{.settings}`, ragged rows, captions) and
+A second pass over tables (best on bold cells, class rows, `{.settings}`, ragged rows, captions) and
 `md2s setup` on a bare machine. One change shows on existing decks beyond the fixes: a table's caption now
-spans the body or its layout area instead of the table (see Fixed).
+spans the body or its layout area instead of the table (see Changed).
+
+### Changed
+
+- A caption is no longer a `<caption>` inside the `<table>`, which made it exactly as wide as the table: under
+  a narrow table it folded into several lines, and made wider it would have widened the table. It is now a
+  `p.caption` beside its table, the two in one `div.captioned`, as wide as the body or the layout area the
+  table is in, so a caption that fits the slide takes one line. The gap between table and caption is
+  unchanged. In a layout area the caption starts at the table's left edge and is left-aligned; in a
+  `fit-left` / `fit-right` column (as wide as its table by definition) it still wraps at the table's width.
+  Pages that change: those with a caption (the gallery's p26: two lines to one, the list below 13px up).
+  In a plain body the caption is centred, under a table that is centred.
+
+### Fixed
+
+- `**91.2**{.best}` (and `{.second}`) put the class on the bold text, so the cell had no tint; it marks the
+  cell now.
+- A row of only `| {.sep} |` drew an empty row and no rule; it is no row now, and rules off the row under
+  it. A `^^` right under it joins the cell above, across the rule.
+- `| {.booktabs} |` (any class) as a row of its own under a table left an empty row and styled nothing.
+- `{.settings}` did not centre its short columns when the separator row had colons (`:--`, `--:`), whose
+  alignment won; settings now sets the alignment itself. Behind a `^^` it centred the wrong column.
+- A row with more cells than the header now draws a warning; the extra cells still extend the table.
+- `md2s setup` on a machine without `tar` or `xz` downloaded TinyTeX, failed with `The "path" argument must
+  be of type string`, and left an empty `tinytex` folder. It now says what is missing before downloading,
+  a command that cannot run or fails names itself and why, and a TinyTeX that did not unpack to a
+  `pdflatex` is removed.
+- `--skill` now says a `[Caption]` must touch the table (no blank line) to be its caption, above or below;
+  a caption above always worked so.
+
+## 0.2.1 (2026-10-30)
+
+Published with this section still headed "Unreleased"; the code in that tarball matches what is listed
+here. From a stress test that converted 18 real PowerPoint decks and compared every page (F1–F13 in its
+report), and the first npm release.
 
 ### Added
 
@@ -46,6 +79,8 @@ spans the body or its layout area instead of the table (see Fixed).
   start a new table. (F2)
 - Braces at the end of a line are attributes only when they hold attribute syntax (`{.class}`, `{#id}`,
   `{key=value}`); `{Task query}` prints as written. (F6)
+- The package is public on npm as `@torridfish/md2s`: no longer `private`, with `repository`, `homepage`,
+  `bugs` and `publishConfig.access: public`. The README says where `npm install`'s audit warnings come from.
 
 ### Fixed
 
@@ -56,32 +91,6 @@ spans the body or its layout area instead of the table (see Fixed).
 - A heading further down a slide was painted over the slide's title. (F9)
 - An empty table header row showed as a grey band. (F10)
 - A `>` further down a slide had no gap from a table above it. (F13)
-- `**91.2**{.best}` (and `{.second}`) put the class on the bold text, so the cell had no tint; it marks the
-  cell now.
-- A row of only `| {.sep} |` drew an empty row and no rule; it is no row now, and rules off the row under
-  it. A `^^` right under it joins the cell above, across the rule.
-- `| {.booktabs} |` (any class) as a row of its own under a table left an empty row and styled nothing.
-- `{.settings}` did not centre its short columns when the separator row had colons (`:--`, `--:`), whose
-  alignment won; settings now sets the alignment itself. Behind a `^^` it centred the wrong column.
-- A row with more cells than the header now draws a warning; the extra cells still extend the table.
-- `md2s setup` on a machine without `tar` or `xz` downloaded TinyTeX, failed with `The "path" argument must
-  be of type string`, and left an empty `tinytex` folder. It now says what is missing before downloading,
-  a command that cannot run or fails names itself and why, and a TinyTeX that did not unpack to a
-  `pdflatex` is removed.
-- `--skill` now says a `[Caption]` must touch the table (no blank line) to be its caption, above or below;
-  a caption above always worked so.
-- A caption is no longer a `<caption>` inside the `<table>`, which made it exactly as wide as the table: under
-  a narrow table it folded into several lines, and made wider it would have widened the table. It is now a
-  `p.caption` beside its table, the two in one `div.captioned`, as wide as the body or the layout area the
-  table is in, so a caption that fits the slide takes one line. The gap between table and caption is
-  unchanged. In a layout area the caption starts at the table's left edge and is left-aligned; in a
-  `fit-left` / `fit-right` column (as wide as its table by definition) it still wraps at the table's width.
-  Pages that change: those with a caption (the gallery's p26: two lines to one, the list below 13px up).
-
-## 0.2.1 (2026-10-30)
-
-### Fixed
-
 - Installed into a project with `npm install` (dependencies hoisted), md2s could not find Marp and stopped
   with "node packages missing". It now finds Marp through Node's module resolution, as a clone and a
   global install already did.
