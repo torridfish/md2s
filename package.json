@@ -1,9 +1,25 @@
 {
   "name": "@torridfish/md2s",
-  "private": true,
   "version": "0.2.1",
   "description": "Stop making slides, do research: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML) on Marp.",
   "license": "MIT",
+  "author": "Torrid Fish <justinwu6900942@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/torridfish/md2s.git"
+  },
+  "homepage": "https://github.com/torridfish/md2s#readme",
+  "bugs": {
+    "url": "https://github.com/torridfish/md2s/issues"
+  },
+  "keywords": [
+    "markdown",
+    "slides",
+    "marp",
+    "academic",
+    "pdf",
+    "pptx"
+  ],
   "bin": {
     "md2s": "bin/md2s.js"
   },
@@ -19,6 +35,9 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "gallery": "node bin/md2s.js examples/gallery.md --pdf -o out/",

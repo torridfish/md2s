@@ -33,6 +33,10 @@ ffmpeg need the system package manager, so it prints that command (`sudo apt-get
 for you to run. Tools already on the system are used as they are. `md2s --check` lists what is there, and
 `md2s setup --yes` installs without asking.
 
+`npm install` reports audit warnings from Marp's own dependency tree (`basic-ftp`, `extract-zip`,
+`chromium-bidi`, …) and one low from KaTeX. None of them is code md2s calls directly; they arrive with the
+renderer. `npm audit fix --force` will break Marp, so it is not applied here.
+
 ## Use
 
 ```bash
