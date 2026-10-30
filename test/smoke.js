@@ -132,6 +132,21 @@ check(/TinyTeX needs `tar` and `xz`.*Install them with your package manager/.tes
   `without tar and xz, md2s setup says so before downloading TinyTeX and leaves nothing (${tex.stdout.trim() || tex.stderr.trim()})`);
 fs.rmSync(bare, { recursive: true, force: true });
 
+// a TinyTeX whose tlmgr fails (a stub tree: pdflatex is there, kpsewhich finds nothing, tlmgr exits 1) is not
+// put on the PATH, and installing its packages removes it and says what to do next
+const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-tinytex-'));
+const stubBin = path.join(stub, 'md2s', 'tinytex', '.TinyTeX', 'bin', 'x86_64-linux');
+fs.mkdirSync(stubBin, { recursive: true });
+for (const cmd of ['pdflatex', 'kpsewhich', 'tlmgr']) fs.writeFileSync(path.join(stubBin, cmd), '#!/bin/sh\nexit 1\n', { mode: 0o755 });
+const half = spawnSync(process.execPath, ['-e', `const s = require(${JSON.stringify(path.join(ROOT, 'src', 'setup.js'))});
+s.useLocalTools(); console.log(process.env.PATH.includes(${JSON.stringify(stubBin)}) ? 'on PATH' : 'not on PATH');
+try { s.installTeXPackages(); console.log('installed'); } catch (e) { console.log(e.message); }`],
+{ encoding: 'utf8', env: { ...process.env, XDG_CACHE_HOME: stub } });
+check(/^not on PATH/.test(half.stdout) && /tlmgr install .* failed \(exit 1\)|tlmgr update --self failed \(exit 1\)/.test(half.stdout)
+  && /removed .*tinytex\. Check your network/.test(half.stdout) && !fs.existsSync(path.join(stub, 'md2s', 'tinytex')),
+`a TinyTeX without its packages is not used, and a failed tlmgr removes it and says what to do (${half.stdout.trim() || half.stderr.trim()})`);
+fs.rmSync(stub, { recursive: true, force: true });
+
 fs.rmSync(out, { recursive: true, force: true });
 if (problems.length) {
   console.log(`\n${problems.length} check(s) failed. md2s --check shows which tools are missing; md2s setup installs them.`);

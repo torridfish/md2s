@@ -44,6 +44,17 @@ function tinytexBin() {
   const arch = fs.existsSync(bin) ? fs.readdirSync(bin)[0] : null;
   return arch ? path.join(bin, arch) : null;
 }
+// it counts once its own kpsewhich finds what ```algo fences load: a tree that a failed or interrupted setup
+// left behind would otherwise pass for an installed TeX (pdflatex ok, algorithm2e missing)
+function tinytexReady() {
+  const bin = tinytexBin();
+  if (!bin) return null;
+  try {
+    const found = execFileSync(path.join(bin, 'kpsewhich'), ['algorithm2e.sty', 'standalone.cls'], { encoding: 'utf8', stdio: 'pipe' });
+    return found.trim().split('\n').length === 2 ? bin : null;
+  } catch { return null; }
+}
+const onPath = (bin) => { if (!process.env.PATH.split(path.delimiter).includes(bin)) process.env.PATH += path.delimiter + bin; };
 
 // Ubuntu 23.10+ lets only programs with an AppArmor profile (a packaged Chrome has one) open the user
 // namespaces Chrome's sandbox is built on, so a browser unpacked in the home folder dies at launch
@@ -55,8 +66,8 @@ const userNamespacesRestricted = () => {
 // PATH, Chrome for Testing as CHROME_PATH when no browser is set or installed. Where the sandbox cannot
 // start (above), md2s's Chrome runs without it (Marp's CHROME_NO_SANDBOX); it only renders your decks.
 function useLocalTools() {
-  const bin = tinytexBin();
-  if (bin && !process.env.PATH.split(path.delimiter).includes(bin)) process.env.PATH += path.delimiter + bin;
+  const bin = tinytexReady();
+  if (bin) onPath(bin);
   if (!process.env.CHROME_PATH && !systemBrowser()) {
     const exe = localBrowser();
     if (exe) {
@@ -124,6 +135,7 @@ const run = (cmd, args) => {
 };
 // TinyTeX comes as .tar.xz: tar unpacks it, and on Linux GNU tar runs xz for it (macOS's tar has xz built in)
 const unpackers = () => ['tar', ...(process.platform === 'darwin' ? [] : ['xz'])].filter((cmd) => !has(cmd));
+const RETRY = 'check your network and run md2s setup again, or install TeX Live with your package manager (md2s uses it when pdflatex is on the PATH)';
 const mb = (file) => `${(fs.statSync(file).size / 1e6).toFixed(0)} MB`;
 
 async function installBrowser() {
@@ -145,14 +157,19 @@ async function installTinyTeX() {
     throw new Error(`TinyTeX needs ${lack}. Install ${missing.length > 1 ? 'them' : 'it'} with your package manager, or install TeX Live and let md2s use that.`);
   }
   // the latest release's tag, from where github.com/…/releases/latest redirects
-  const latest = await fetch('https://github.com/rstudio/tinytex-releases/releases/latest', { method: 'HEAD', redirect: 'follow' });
+  const latest = await fetch('https://github.com/rstudio/tinytex-releases/releases/latest', { method: 'HEAD', redirect: 'follow' })
+    .catch((e) => { throw new Error(`could not reach github.com for TinyTeX (${e.message}): ${RETRY}`); });
   const tag = (latest.url.match(/\/tag\/(v[\w.]+)$/) || [])[1];
-  if (!tag) throw new Error('could not find the latest TinyTeX release');
+  if (!tag) throw new Error(`could not find the latest TinyTeX release: ${RETRY}`);
   const name = `TinyTeX-1-${arch}-${tag}.tar.xz`;
   const archive = path.join(CACHE, name);
   console.log(`downloading ${name} …`);
-  await download(`https://github.com/rstudio/tinytex-releases/releases/download/${tag}/${name}`, archive);
+  try { await download(`https://github.com/rstudio/tinytex-releases/releases/download/${tag}/${name}`, archive); } catch (e) {
+    fs.rmSync(archive, { force: true });
+    throw new Error(`could not download ${name} (${e.message}): ${RETRY}`);
+  }
   console.log(`unpacking ${mb(archive)} into ${TINYTEX} …`);
+  fs.rmSync(TINYTEX, { recursive: true, force: true });   // what an earlier setup left
   fs.mkdirSync(TINYTEX, { recursive: true });
   try {
     run('tar', ['-xJf', archive, '-C', TINYTEX]);
@@ -166,15 +183,24 @@ async function installTinyTeX() {
   }
 }
 
+// the packages ```algo fences need, with tlmgr (which fetches them from CTAN). Whatever fails here removes the
+// whole tree, so md2s --check never reports a TinyTeX that cannot build a fence
 function installTeXPackages() {
-  const bin = tinytexBin();
-  if (!bin) throw new Error(`no TinyTeX in ${TINYTEX}: run md2s setup again`);
-  const tlmgr = path.join(bin, 'tlmgr');
-  console.log(`installing ${TEX_PACKAGES.join(' ')} into TinyTeX …`);
-  try { run(tlmgr, ['install', ...TEX_PACKAGES]); } catch {
-    // a TinyTeX older than TeX Live's repository has to update tlmgr itself first
-    run(tlmgr, ['update', '--self']);
-    run(tlmgr, ['install', ...TEX_PACKAGES]);
+  try {
+    const bin = tinytexBin();
+    if (!bin) throw new Error(`no TinyTeX in ${TINYTEX}`);
+    onPath(bin);
+    const tlmgr = path.join(bin, 'tlmgr');
+    console.log(`installing ${TEX_PACKAGES.join(' ')} into TinyTeX …`);
+    try { run(tlmgr, ['install', ...TEX_PACKAGES]); } catch {
+      // a TinyTeX older than TeX Live's repository has to update tlmgr itself first
+      run(tlmgr, ['update', '--self']);
+      run(tlmgr, ['install', ...TEX_PACKAGES]);
+    }
+    if (!tinytexReady()) throw new Error('tlmgr ended, but kpsewhich finds no algorithm2e.sty or standalone.cls');
+  } catch (e) {
+    fs.rmSync(TINYTEX, { recursive: true, force: true });
+    throw new Error(`${e.message}; removed ${TINYTEX}. ${RETRY[0].toUpperCase()}${RETRY.slice(1)}.`);
   }
 }
 
@@ -207,12 +233,11 @@ async function setup(root, args) {
   }
   if (!rows.pdflatex.ok) {
     if (await ask(`No pdflatex for \`\`\`algo fences. Download TinyTeX (~60 MB, ~250 MB unpacked) into ${TINYTEX}?`, yes, true)) {
-      await step('TinyTeX', async () => { await installTinyTeX(); useLocalTools(); installTeXPackages(); });
+      await step('TinyTeX', async () => { await installTinyTeX(); installTeXPackages(); });
     }
   } else if (!rows['algorithm2e, standalone'].ok) {
-    // md2s's own TinyTeX can take packages here; a system TeX Live needs its owner's tlmgr
-    if (ours(which('pdflatex'))) await step('TeX packages', installTeXPackages);
-    else printed.push(`tlmgr install ${TEX_PACKAGES.join(' ')}    (TeX Live's tlmgr; with sudo if TeX Live is the system's)`);
+    // a system TeX Live needs its owner's tlmgr (md2s's own TinyTeX is on the PATH only once it has these)
+    printed.push(`tlmgr install ${TEX_PACKAGES.join(' ')}    (TeX Live's tlmgr; with sudo if TeX Live is the system's)`);
   }
   if (!rows['pdftocairo (poppler)'].ok) printed.push(systemCommand({ apt: 'poppler-utils', brew: 'poppler', dnf: 'poppler-utils', pacman: 'poppler' }));
   if (!rows.ffmpeg.ok) printed.push(`${systemCommand({ apt: 'ffmpeg', brew: 'ffmpeg', dnf: 'ffmpeg', pacman: 'ffmpeg' })}    (optional: video first frames)`);
@@ -227,4 +252,4 @@ async function setup(root, args) {
   if (failed.length) { console.log(`\nFailed:\n${failed.map((f) => `  ${f}`).join('\n')}`); process.exitCode = 1; }
 }
 
-module.exports = { useLocalTools, browser, chromium, check, setup, installTinyTeX };   // installTinyTeX: for npm test
+module.exports = { useLocalTools, browser, chromium, check, setup, installTinyTeX, installTeXPackages };   // install*: for npm test
