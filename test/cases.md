@@ -30,6 +30,16 @@ headingDivider: 2
 | --- | --- |
 | planner | 51.2 |
 
+## Tables
+### A role column under a grouped header
+
+| role | K | Baseline | OOD ||
+| x | ^^ | ^^ | SVAMP | MultiArith |
+| --- | --- | --- | --- | --- |
+| ref | - | no-CoT SFT | 44.7 | 65.6 |
+| x | 8 | grouped-x-row | 31.2 | 56.7 |
+| b | 8 | matched no-CoT | 31.2 | 56.7 |
+
 ## Text
 ### Braces that are not attributes stay text
 

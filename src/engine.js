@@ -360,7 +360,8 @@ function spansPastAttrs(md) {
 // Two tables one blank line apart: multimd-table's multibody (kept for the {.settings} line under a table)
 // reads the second as a row group of the first, its header as a row and its --- row as cells. A row group
 // whose rows lead to a row of --- cells is a table of its own: it is closed off there, the rows above the
-// --- row become its header, and the colons in that row give its columns' alignment.
+// --- row become its header, and the colons in that row give its columns' alignment. The rows right under
+// the header are never a new table: a row of - there is a row of the table (a converter's empty cells).
 const DELIMITER_CELL = /^:?-+:?$/;
 function splitTables(md) {
   md.core.ruler.push('rs_split_tables', (state) => {
@@ -371,7 +372,7 @@ function splitTables(md) {
     for (let i = 0; i < toks.length; i++) {
       const t = toks[i];
       if (t.type === 'table_open') table = t;
-      if (t.type !== 'tbody_open') { out.push(t); continue; }
+      if (t.type !== 'tbody_open' || toks[i - 1].type === 'thead_close') { out.push(t); continue; }
       let end = i;
       while (toks[end].type !== 'tbody_close') end++;
       const rows = [];   // { open, close, cells: [text] }
@@ -473,19 +474,42 @@ function tables(md) {
           rows.splice(0, head.length);
         }
       }
-      // a `role` column only when every value is a role word: a table whose Role column holds data keeps it
-      const roleWords = (s) => !s || s.split(/\s+/).every((w) => ROLES.includes(w));
-      let ri = rows[0].cells.findIndex((c) => text(c).toLowerCase() === 'role');
-      if (ri >= 0 && !rows.slice(1).every((r) => !r.cells[ri] || roleWords(text(r.cells[ri])))) ri = -1;
-      if (ri >= 0) rows.forEach((r, k) => {
-        const c = r.cells[ri];
-        if (!c) return;   // a row whose cells a ^^ above shifted
-        if (k > 0 && text(c)) toks[r.open].attrJoin('class', text(c));
+      // each cell's column, counting the columns a ^^ cell above still covers and the || spans before it
+      let covered = [];
+      for (const r of rows) {
+        const next = covered.map((n) => Math.max(0, n - 1));
+        let col = 0;
+        for (const c of r.cells) {
+          while (covered[col] > 0) col++;
+          c.col = col;
+          c.span = Number(toks[c.open].attrGet('colspan')) || 1;
+          for (let k = 0; k < c.span; k++) next[col + k] = (Number(toks[c.open].attrGet('rowspan')) || 1) - 1;
+          col += c.span;
+        }
+        covered = next;
+      }
+      const at = (r, col) => r.cells.find((c) => c.col <= col && col < c.col + c.span);
+      // a `role` column (headed role in any header row) only when every value in the body rows is a role word,
+      // x, - or empty (an untinted row): a table whose Role column holds data keeps it. A header row's cell in
+      // it is the grouped header's placeholder (x, -, ^^) and goes with the column.
+      const isBody = (r) => r.cells.length && toks[r.cells[0].open].type === 'td_open';
+      const UNTINTED = ['', 'x', '-'];
+      const roleWords = (s) => UNTINTED.includes(s) || s.split(/\s+/).every((w) => ROLES.includes(w));
+      const head = rows.some((r) => !isBody(r)) ? rows.filter((r) => !isBody(r)) : rows.slice(0, 1);
+      const roleHead = head.flatMap((r) => r.cells).find((c) => text(c).toLowerCase() === 'role');
+      let rc = roleHead ? roleHead.col : -1;
+      if (rc >= 0 && !rows.filter((r) => isBody(r) && r !== rows[0]).every((r) => { const c = at(r, rc); return !c || c.col !== rc || roleWords(text(c)); })) rc = -1;
+      if (rc >= 0) for (const r of rows) {
+        const c = at(r, rc);
+        if (!c) continue;   // a ^^ above covers it
+        if (c.span > 1) { toks[c.open].attrSet('colspan', String(c.span - 1)); continue; }   // a || across it: one column less
+        if (c !== roleHead && !UNTINTED.includes(text(c)) && isBody(r)) toks[r.open].attrJoin('class', text(c));
         for (const x of [c.open, c.inline, c.close]) drop.add(x);
-      });
+      }
+      const ri = rc >= 0 ? rows[0].cells.findIndex((c) => c.col === rc) : -1;
       if ((toks[i].attrGet('class') || '').includes('settings')) {
         // body rows are the td rows (a header may have two); a column a ^^ or || leaves a row short of counts as long
-        const body = rows.filter((r) => r.cells.length && toks[r.cells[0].open].type === 'td_open');
+        const body = rows.filter(isBody);
         rows[0].cells.forEach((_, col) => {
           if (col === ri || !body.length) return;
           if (body.every((r) => r.cells[col] && text(r.cells[col]).length <= 3)) for (const r of body) toks[r.cells[col].open].attrJoin('class', 'c');
@@ -1151,10 +1175,19 @@ module.exports = ({ marp }) => {
     env.md2s = settings(src);
     return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
   };
+  const script = (name) => `<script>${fs.readFileSync(path.join(__dirname, name), 'utf8').replace(/<\/script/gi, '<\\/script')}</script>`;
+  // every format: a table wider than its box gets a smaller font until it fits (src/fit.js)
+  const fitTables = script('fit.js');
+  const renderAll = marp.render.bind(marp);
+  marp.render = (...args) => {
+    const out = renderAll(...args);
+    out.html += fitTables;
+    return out;
+  };
   // md2s --html / --serve: the presenting tools (laser, pen, click to turn) go in after the slides
   if (process.env.MD2S_FORMAT === 'html') {
     const render = marp.render.bind(marp);
-    const script = fs.readFileSync(path.join(__dirname, 'present.js'), 'utf8').replace(/<\/script/gi, '<\\/script');
+    const present = script('present.js');
     // KaTeX's fonts are local file:// URLs, which a page served over http (or opened elsewhere) may not
     // load: keep the woff2 of each, embedded, and drop the woff / ttf fallbacks
     const fonts = (css) => css
@@ -1165,7 +1198,7 @@ module.exports = ({ marp }) => {
     marp.render = (...args) => {
       const out = render(...args);
       out.css = fonts(out.css);
-      out.html += `<script>${script}</script>`;
+      out.html += present;
       return out;
     };
   }

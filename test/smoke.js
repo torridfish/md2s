@@ -83,13 +83,15 @@ const deck = (name) => {
 };
 const cases = deck('cases.md');
 const sections = (cases.html.match(/<section\b/g) || []).length;
-check(sections === 5, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 5 expected)`);
+check(sections === 6, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 6 expected)`);
 check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
 const tables = (cases.html.match(/<table\b/g) || []).length;
-check(tables === 4 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 4 expected), no --- cells`);
+check(tables === 5 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 5 expected), no --- cells`);
 check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
 check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
 check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
+check(!/>role</.test(cases.html) && /<tr class="ref">/.test(cases.html) && /<tr>\s*<td[^>]*>8<\/td>\s*<td[^>]*>grouped-x-row/.test(cases.html),
+  'a role column under a grouped header (x, ^^ placeholders, an x row) is not shown');
 check(cases.html.includes('hello {Task query}') && cases.html.includes('braces {Task response}'), 'braces that are not attributes stay text');
 
 const plain = deck('no-divider.md');

@@ -270,10 +270,10 @@ section p:has(> .katex-display) { padding: 0; margin: 6px 0 var(--block-gap); }
 img.algo, img.tex { display: block; margin-left: var(--space-2); }
 
 /* ---------- tables: 9pt, centred, compact ---------- */
-/* a table no wider than its box: a cell may break a word anywhere when nothing else fits (a table that
-   already fits is laid out as before) */
+/* a table no wider than its box: a word longer than its cell breaks (a table that already fits is laid out
+   as before); break-word, not anywhere, so a column keeps the width of its longest word and 68.9 stays whole */
 section table { border-collapse: collapse; font-size: var(--table-size); line-height: 1.1; margin: 0 auto; align-self: center; max-width: 100%; }
-section th, section td { border: 1px solid var(--ink); padding: 1px var(--space-2); text-align: center; vertical-align: middle; background: #fff; overflow-wrap: anywhere; }
+section th, section td { border: 1px solid var(--ink); padding: 1px var(--space-2); text-align: center; vertical-align: middle; background: #fff; overflow-wrap: break-word; }
 section th { background: var(--surface-head); font-weight: bold; }
 section tr.ref td { background: var(--surface-head); }
 section tr.a td { background: var(--band-blue); }
