@@ -12,7 +12,8 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
 - A layout check after every build (not `--watch`; `--no-check` skips it): md2s lays the deck out again in
   the browser and warns, by slide, about a body taller than its box, anything past the margins or the
   slide's edge, a heading over the header, and a title or subtitle on a third line. Chrome cuts all of
-  these without a word. (F1)
+  these without a word. (F1) It is a warning, not a fix: the content is still cut off in the PDF, it is
+  just no longer silent. Fix each warned slide in the Markdown (split it with `---`, shorten it).
 - A warning when slides get a second `##` without `headingDivider`, which leaves a deck as one slide. (F12)
 
 ### Changed
@@ -20,7 +21,9 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
 - A `##` or `###` too long for one line wraps to a second, and the line under the header and the body move
   down; it used to be cut mid-word. One-line headers sit exactly where they did. (F8)
 - A token longer than the line breaks instead of running off the slide, and a table is at most as wide as
-  its box, its cells breaking words when nothing else fits. (F7, F3)
+  its box, its cells breaking words when nothing else fits. (F7, F3) A wrapped table is taller, so on a
+  full slide what follows it (a paragraph of notes) can now run off the bottom instead: the loss moves
+  rather than goes away, but it is warned about, and no cell text is cut at the page edge any more.
 - A column headed `Role` is md2s's row-role column only when every value is a role word; otherwise it is
   data and stays. (F11)
 - Braces at the end of a line are attributes only when they hold attribute syntax (`{.class}`, `{#id}`,
