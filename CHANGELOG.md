@@ -14,18 +14,31 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
   slide's edge, a heading over the header, and a title or subtitle on a third line. Chrome cuts all of
   these without a word. (F1) It is a warning, not a fix: the content is still cut off in the PDF, it is
   just no longer silent. Fix each warned slide in the Markdown (split it with `---`, shorten it).
+  It measures only what is painted: KaTeX's hidden MathML copy of a formula (and its TeX) is skipped, so
+  math in a `###` no longer counts as extra lines, and a formula that fits is not reported as running off.
+  A formula that does run off is reported by its visible width (`test/overflow.md` slide 5: 38px, where
+  the hidden copy had made it 445px).
+  Known, not fixed: on one deck (2026-10-31, slide 31, `img-left`) the check's own page sized the image
+  column at the PNG's natural width and squeezed the text column to nothing, so it warned about a slide
+  that renders fine. It happened on every run of one copy of the deck and on no run of the deck in place.
+  If it comes back, first make the check wait until every `document.images` is decoded and the fonts are
+  loaded before measuring, before touching the grid styles.
 - A warning when slides get a second `##` without `headingDivider`, which leaves a deck as one slide. (F12)
 
 ### Changed
 
 - A `##` or `###` too long for one line wraps to a second, and the line under the header and the body move
   down; it used to be cut mid-word. One-line headers sit exactly where they did. (F8)
-- A token longer than the line breaks instead of running off the slide, and a table is at most as wide as
-  its box, its cells breaking words when nothing else fits. (F7, F3) A wrapped table is taller, so on a
-  full slide what follows it (a paragraph of notes) can now run off the bottom instead: the loss moves
-  rather than goes away, but it is warned about, and no cell text is cut at the page edge any more.
-- A column headed `Role` is md2s's row-role column only when every value is a role word; otherwise it is
-  data and stays. (F11)
+- A token longer than the line breaks instead of running off the slide. (F7) A table wider than its box
+  wraps its cells at spaces and hyphens, and if its words still do not fit, its font gets smaller, down to
+  6px, until it does; a number or a word is never split across lines. (F3) A wrapped table is taller, so
+  on a full slide what follows it (a paragraph of notes) can now run off the bottom instead: the loss
+  moves rather than goes away, but it is warned about.
+- A column headed `Role` is md2s's row-role column only when every value in the body rows is a role word,
+  `x`, `-` or empty; otherwise it is data and stays. `role` may head any header row, and a grouped
+  header's placeholders (`x`, `-`, `^^`) and `^^` cells before the column no longer shift it. (F11)
+- A row of `-` cells right under a table's header stays a row; only a row group after a blank line can
+  start a new table. (F2)
 - Braces at the end of a line are attributes only when they hold attribute syntax (`{.class}`, `{#id}`,
   `{key=value}`); `{Task query}` prints as written. (F6)
 
