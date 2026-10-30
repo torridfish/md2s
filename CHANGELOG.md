@@ -61,6 +61,10 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
 - `{.settings}` did not centre its short columns when the separator row had colons (`:--`, `--:`), whose
   alignment won; settings now sets the alignment itself. Behind a `^^` it centred the wrong column.
 - A row with more cells than the header now draws a warning; the extra cells still extend the table.
+- `md2s setup` on a machine without `tar` or `xz` downloaded TinyTeX, failed with `The "path" argument must
+  be of type string`, and left an empty `tinytex` folder. It now says what is missing before downloading,
+  a command that cannot run or fails names itself and why, and a TinyTeX that did not unpack to a
+  `pdflatex` is removed.
 - `--skill` now says a `[Caption]` must touch the table (no blank line) to be its caption, above or below;
   a caption above always worked so.
 

@@ -114,6 +114,16 @@ check(/not front matter/.test(plain.err) && /<h3[^>]*>A deck whose first line is
 check(/a second ##/.test(plain.err), 'without headingDivider, a slide with a second ## draws a warning');
 check(/<div class="body[^"]*">[\s\S]*<h2[^>]*>Second<\/h2>/.test(plain.html) && !/over the header/.test(plain.err), 'a ## further down a slide heads the body, not the title slot');
 
+// md2s setup on a machine without tar / xz: TinyTeX is not downloaded, the message says why, nothing is left
+// (a PATH holding only sh, and a cache of its own, so nothing real is touched)
+const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-path-'));
+fs.symlinkSync('/bin/sh', path.join(bare, 'sh'));
+const tex = spawnSync(process.execPath, ['-e', `require(${JSON.stringify(path.join(ROOT, 'src', 'setup.js'))}).installTinyTeX().then(() => console.log('installed'), (e) => console.log(e.message))`],
+  { encoding: 'utf8', env: { ...process.env, PATH: bare, XDG_CACHE_HOME: path.join(bare, 'cache') } });
+check(/TinyTeX needs `tar` and `xz`.*Install them with your package manager/.test(tex.stdout) && !fs.existsSync(path.join(bare, 'cache', 'md2s', 'tinytex')),
+  `without tar and xz, md2s setup says so before downloading TinyTeX and leaves nothing (${tex.stdout.trim() || tex.stderr.trim()})`);
+fs.rmSync(bare, { recursive: true, force: true });
+
 fs.rmSync(out, { recursive: true, force: true });
 if (problems.length) {
   console.log(`\n${problems.length} check(s) failed. md2s --check shows which tools are missing; md2s setup installs them.`);

@@ -115,10 +115,15 @@ async function download(url, file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, Buffer.from(await r.arrayBuffer()));
 }
+// a command that could not start (not on the PATH) or did not end well says which command, and why
 const run = (cmd, args) => {
   const r = spawnSync(cmd, args, { stdio: 'inherit' });
-  if (r.status) throw new Error(`${path.basename(cmd)} ${args.join(' ')} failed`);
+  const what = `${path.basename(cmd)} ${args.join(' ')}`;
+  if (r.error) throw new Error(`${what} could not run: ${r.error.code === 'ENOENT' ? `${cmd} is not installed` : r.error.message}`);
+  if (r.status !== 0) throw new Error(`${what} failed (${r.signal ? `killed by ${r.signal}` : `exit ${r.status}`})`);
 };
+// TinyTeX comes as .tar.xz: tar unpacks it, and on Linux GNU tar runs xz for it (macOS's tar has xz built in)
+const unpackers = () => ['tar', ...(process.platform === 'darwin' ? [] : ['xz'])].filter((cmd) => !has(cmd));
 const mb = (file) => `${(fs.statSync(file).size / 1e6).toFixed(0)} MB`;
 
 async function installBrowser() {
@@ -133,6 +138,12 @@ async function installBrowser() {
 async function installTinyTeX() {
   const arch = { 'linux x64': 'linux-x86_64', 'linux arm64': 'linux-arm64', 'darwin x64': 'darwin', 'darwin arm64': 'darwin' }[`${process.platform} ${process.arch}`];
   if (!arch) throw new Error(`no TinyTeX build for ${process.platform} ${process.arch}: install TeX Live (https://tug.org/texlive/)`);
+  const missing = unpackers();
+  if (missing.length) {
+    const needs = process.platform === 'darwin' ? '`tar`' : '`tar` and `xz`';
+    const lack = missing.length > 1 || process.platform === 'darwin' ? `${needs}, which ${missing.length > 1 ? 'are' : 'is'} not installed` : `${needs}, and \`${missing[0]}\` is not installed`;
+    throw new Error(`TinyTeX needs ${lack}. Install ${missing.length > 1 ? 'them' : 'it'} with your package manager, or install TeX Live and let md2s use that.`);
+  }
   // the latest release's tag, from where github.com/…/releases/latest redirects
   const latest = await fetch('https://github.com/rstudio/tinytex-releases/releases/latest', { method: 'HEAD', redirect: 'follow' });
   const tag = (latest.url.match(/\/tag\/(v[\w.]+)$/) || [])[1];
@@ -143,12 +154,21 @@ async function installTinyTeX() {
   await download(`https://github.com/rstudio/tinytex-releases/releases/download/${tag}/${name}`, archive);
   console.log(`unpacking ${mb(archive)} into ${TINYTEX} …`);
   fs.mkdirSync(TINYTEX, { recursive: true });
-  run('tar', ['-xJf', archive, '-C', TINYTEX]);
-  fs.rmSync(archive);
+  try {
+    run('tar', ['-xJf', archive, '-C', TINYTEX]);
+    if (!tinytexBin() || !fs.existsSync(path.join(tinytexBin(), 'pdflatex'))) throw new Error(`unpacked, but ${TINYTEX} holds no .TinyTeX/bin/<arch>/pdflatex`);
+  } catch (e) {
+    // a half-unpacked TinyTeX would pass for an installed one
+    fs.rmSync(TINYTEX, { recursive: true, force: true });
+    throw e;
+  } finally {
+    fs.rmSync(archive, { force: true });
+  }
 }
 
 function installTeXPackages() {
   const bin = tinytexBin();
+  if (!bin) throw new Error(`no TinyTeX in ${TINYTEX}: run md2s setup again`);
   const tlmgr = path.join(bin, 'tlmgr');
   console.log(`installing ${TEX_PACKAGES.join(' ')} into TinyTeX …`);
   try { run(tlmgr, ['install', ...TEX_PACKAGES]); } catch {
@@ -207,4 +227,4 @@ async function setup(root, args) {
   if (failed.length) { console.log(`\nFailed:\n${failed.map((f) => `  ${f}`).join('\n')}`); process.exitCode = 1; }
 }
 
-module.exports = { useLocalTools, browser, chromium, check, setup };
+module.exports = { useLocalTools, browser, chromium, check, setup, installTinyTeX };   // installTinyTeX: for npm test
