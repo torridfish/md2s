@@ -574,6 +574,32 @@ function tables(md) {
     }
     if (drop.size) state.tokens = toks.filter((_, k) => !drop.has(k));
   });
+  // A [Caption] inside the <table> is as wide as the table: under a narrow table it folds into many lines, and
+  // made wider it widens the table. So the caption leaves the table for a p.caption beside it, above or below
+  // as written, and the two go in one div.captioned: one block for a layout's cells, the caption as wide as
+  // the body or the area. A table without a caption is left as it is.
+  md.core.ruler.push('rs_captions', (state) => {
+    const toks = state.tokens;
+    if (!toks.some((t) => t.type === 'caption_open')) return;
+    const out = [];
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (t.type !== 'table_open' || !toks[i + 1] || toks[i + 1].type !== 'caption_open') { out.push(t); continue; }
+      let end = i; while (toks[end].type !== 'table_close') end++;
+      const [cap, inline] = [toks[i + 1], toks[i + 2]];
+      const below = /caption-side:\s*bottom/.test(cap.attrGet('style') || '');
+      const block = (type, tag, nesting) => Object.assign(new state.Token(type, tag, nesting), { level: t.level, block: true });
+      const p = [block('paragraph_open', 'p', 1), Object.assign(inline, { level: t.level + 1 }), block('paragraph_close', 'p', -1)];
+      p[0].attrSet('class', 'caption');
+      if (cap.attrGet('id')) p[0].attrSet('id', cap.attrGet('id'));
+      const div = block('rs_captioned_open', 'div', 1);
+      div.attrSet('class', 'captioned');
+      const table = [t, ...toks.slice(i + 4, end + 1)];   // past caption_open, inline, caption_close
+      out.push(div, ...(below ? [...table, ...p] : [...p, ...table]), block('rs_captioned_close', 'div', -1));
+      i = end;
+    }
+    state.tokens = out;
+  });
 }
 
 // ---------- fences ----------

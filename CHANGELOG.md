@@ -67,6 +67,13 @@ From a stress test that converted 18 real PowerPoint decks and compared every pa
   `pdflatex` is removed.
 - `--skill` now says a `[Caption]` must touch the table (no blank line) to be its caption, above or below;
   a caption above always worked so.
+- A caption is no longer a `<caption>` inside the `<table>`, which made it exactly as wide as the table: under
+  a narrow table it folded into several lines, and made wider it would have widened the table. It is now a
+  `p.caption` beside its table, the two in one `div.captioned`, as wide as the body or the layout area the
+  table is in, so a caption that fits the slide takes one line. The gap between table and caption is
+  unchanged. In a layout area the caption starts at the table's left edge and is left-aligned; in a
+  `fit-left` / `fit-right` column (as wide as its table by definition) it still wraps at the table's width.
+  Pages that change: those with a caption (the gallery's p26: two lines to one, the list below 13px up).
 
 ## 0.2.1 (2026-10-30)
 

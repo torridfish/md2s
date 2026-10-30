@@ -83,10 +83,10 @@ const deck = (name) => {
 };
 const cases = deck('cases.md');
 const sections = (cases.html.match(/<section\b/g) || []).length;
-check(sections === 13, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 13 expected)`);
+check(sections === 15, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 15 expected)`);
 check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
 const tables = (cases.html.match(/<table\b/g) || []).length;
-check(tables === 12 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 12 expected), no --- cells`);
+check(tables === 14 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 14 expected), no --- cells`);
 check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
 check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
 check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
@@ -107,7 +107,15 @@ check(/<td class="c">1<\/td>/.test(table('settings-colons')) && !/text-align/.te
 check(/<td rowspan="2" class="c">A<\/td><td class="c">1<\/td><td>68\.9<\/td>/.test(table('settings-caret')) && /<tr><td class="c">2<\/td><td>61\.2<\/td>/.test(table('settings-caret')),
   'settings centres short columns by column, past a ^^');
 check(/more cells than its header \(4 columns, the header 2\)[^\n]*ragged-row/.test(cases.err), 'a row wider than the header is warned about');
-check(/<caption[^>]*>caption-above-the-table<\/caption>/.test(table('caption-above-the-table')), 'a [Caption] on the line above a table is its caption');
+check(/<p class="caption"[^>]*>caption-above-the-table<\/p>\s*<table/.test(cases.html), 'a [Caption] on the line above a table is its caption, above it');
+// a caption is no longer inside its table: it spans the body or the area, and stays with its table
+const shown = spawnSync(process.execPath, [path.join(__dirname, 'measure.js'), path.join(out, 'cases.html'), 'caption-narrow-table', 'caption-in-area'], { encoding: 'utf8' });
+const box = (() => { try { return JSON.parse(shown.stdout); } catch { return {}; } })();
+const narrow = box['caption-narrow-table'], inArea = box['caption-in-area'];
+check(narrow && narrow.lines === 1 && narrow.caption > narrow.box - 2 && narrow.table < narrow.box / 4,
+  `a long caption under a narrow table spans the body on one line (${JSON.stringify(narrow || box)})`);
+check(inArea && /area-b/.test(inArea.captionArea) && inArea.captionArea === inArea.tableArea && inArea.caption > inArea.box * 0.9,
+  `a caption stays with its table in its area, as wide as the area (${JSON.stringify(inArea || box)})`);
 
 const plain = deck('no-divider.md');
 check(/not front matter/.test(plain.err) && /<h3[^>]*>A deck whose first line is ---/.test(plain.html), 'a leading --- that opens no front matter keeps the first slide, and says so');

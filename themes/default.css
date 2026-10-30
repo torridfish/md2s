@@ -151,10 +151,10 @@ section > .body.middle { justify-content: center; }
 .area.bottom { justify-content: flex-end; }
 .area.center { align-items: center; }
 /* a table, figure, formula or code right under the lead takes the same gap above as below it */
-section > blockquote:has(+ .body:not(.layout) > :first-child:is(table, .code, p.figures, p:has(> .katex-display), img)) { min-height: 0; padding-bottom: 0; }
-section > blockquote + .body:not(.layout):has(> :first-child:is(table, .code, p.figures, p:has(> .katex-display), img)) { margin-top: var(--block-gap); }
+section > blockquote:has(+ .body:not(.layout) > :first-child:is(table, .captioned, .code, p.figures, p:has(> .katex-display), img)) { min-height: 0; padding-bottom: 0; }
+section > blockquote + .body:not(.layout):has(> :first-child:is(table, .captioned, .code, p.figures, p:has(> .katex-display), img)) { margin-top: var(--block-gap); }
 /* the same block as the first thing under the line gets a little more room than text, which has its leading */
-section > :is(h2, h3) + .body:has(> :first-child:is(table, .code, p.figures, p:has(> .katex-display))) { margin-top: var(--block-top); }
+section > :is(h2, h3) + .body:has(> :first-child:is(table, .captioned, .code, p.figures, p:has(> .katex-display))) { margin-top: var(--block-top); }
 
 /* ---------- layouts: <!-- _layout: … --> makes the body a grid of areas a, b … ---------- */
 /* each preset is a grid-template; a block outside ::: a … ::: fills the next free cell. Between areas the
@@ -172,6 +172,12 @@ section > .body.layout > .area { align-self: stretch; }
 section > .body.layout > .code { align-self: start; }   /* .code stretches across a stack, not down a cell */
 /* in a layout, a table, figure row or formula sits at the body's left edge with a 3pt bound */
 section > .body.layout > table, .body.layout > .area > table { align-self: start; justify-self: start; margin: 0 var(--bound) 0 var(--inset-body); }
+/* a captioned table there too; its caption, as wide as the cell or area, starts where the table does */
+section > .body.layout > .captioned, .body.layout > .area > .captioned { align-items: flex-start; margin: 0 var(--bound) 0 var(--inset-body); }
+section > .body.layout > .captioned { align-self: start; }   /* a grid cell: at its top, across its width */
+.body.layout > .area > .captioned { align-self: stretch; }   /* an area's column: across its width */
+.body.layout .captioned > table { align-self: flex-start; }
+.body.layout .captioned > p.caption { text-align: left; }
 section > .body.layout > p.figures, .body.layout > .area > p.figures { justify-content: flex-start; padding: 0 var(--bound) 0 var(--inset-body); }
 .body.layout p:has(> .katex-display) { padding: 0 var(--bound) 0 var(--inset-body); }
 .body.layout .katex-display, .body.layout .katex-display > .katex { text-align: left; }
@@ -294,7 +300,12 @@ section table.booktabs thead tr:last-child th { border-bottom: 0.8px solid var(-
 section table.booktabs th, section table.plain th { background: none; }
 section table.plain :is(th, td) { border: 0; }
 section table.striped tbody tr:nth-child(even):not([class]) td { background: var(--surface-code); }
-section table caption { font-size: var(--table-size); color: var(--ink-muted); padding: 4px 0; }
+/* [Caption]: the engine puts it beside its table, in one div.captioned, so that it is as wide as the body or
+   the area rather than the table (as a <caption> it was the table's width, and folded under a narrow one);
+   contain: inline-size keeps its length out of a fit-left column's width */
+section .captioned { display: flex; flex-direction: column; align-items: center; }
+section .captioned > table { margin: 0; }
+section p.caption { align-self: stretch; contain: inline-size; margin: 0; padding: 4px 0; font-size: var(--table-size); line-height: 1.1; color: var(--ink-muted); text-align: center; }
 section table.settings th { background: var(--surface-head-blue); text-align: left; }
 section table.settings td { text-align: left; }
 section table.settings td.c { text-align: center; }

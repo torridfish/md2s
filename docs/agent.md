@@ -241,7 +241,7 @@ so people on the same network can open the deck while it runs.
 | a row of only `\| {.sep} \|` | not a row: a rule above the row under it (any class written so goes to that row) |
 | a table, a blank line, `{.booktabs}` | the table's style: `grid` (the default), `booktabs` (top, header and bottom rules only), `plain` (no lines), `striped` (every other row tinted), `settings` (blue header, left-aligned, short columns centred, whatever the separator row's colons say); classes combine; `\| {.booktabs} \|` as a row of its own works the same |
 | `\|\|` at the end of a cell, `^^` as a cell | the cell spans the next column / joins the cell above (MultiMarkdown); two header rows before the separator make a grouped header |
-| `[Caption]` on the line right after a table, no blank line between | a caption under it; on the line right before it: above (a blank line between makes it a paragraph) |
+| `[Caption]` on the line right after a table, no blank line between | a caption under it; on the line right before it: above (a blank line between makes it a paragraph). It spans the body or the layout area, not just the table (left-aligned in an area; in a `fit-left` column it wraps at the table's width) |
 | a row with more cells than the header | extends the table by columns without a header cell; md2s warns |
 | `<hr class="rule">` | body rule splitting the page |
 | `<!-- text -->` | speaker notes |

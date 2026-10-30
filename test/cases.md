@@ -112,6 +112,30 @@ User: hello {Task query}
 | --- | --- |
 | 1 | 2 |
 
+## Tables
+### A long caption under a narrow table spans the body
+
+| A | B |
+| --- | --- |
+| 1 | 2 |
+[caption-narrow-table: a caption much longer than its narrow two-column table is wide]
+
+## Tables
+### A caption stays with its table in an area
+
+<!-- _layout: two -->
+
+::: a
+- notes on the left
+:::
+
+::: b
+| A | B |
+| --- | --- |
+| 1 | 2 |
+[caption-in-area: a caption that stays in area b with its table]
+:::
+
 ## Parts
 ### A subsection ends
 
