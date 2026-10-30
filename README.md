@@ -21,10 +21,12 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 Linux (Ubuntu, Debian, WSL) or macOS, with Node 18 or newer:
 
 ```bash
-git clone https://github.com/torridfish/md2s.git && cd md2s
-npm ci && npm link             # puts md2s on the PATH
-md2s setup                     # installs what is missing, asking first
+npm install -g @torridfish/md2s    # puts md2s on the PATH
+md2s setup                         # installs what is missing, asking first
 ```
+
+`npx @torridfish/md2s deck.md --pdf` runs it without installing (run `npx @torridfish/md2s setup` once
+first).
 
 `md2s setup` needs no sudo. If there is no Chrome, Chromium, Edge or Firefox, it downloads Chrome for
 Testing (about 400 MB unpacked) into `~/.cache/md2s`. Without TeX it downloads TinyTeX (about 250 MB) for
@@ -36,6 +38,9 @@ for you to run. Tools already on the system are used as they are. `md2s --check`
 `npm install` reports audit warnings from Marp's own dependency tree (`basic-ftp`, `extract-zip`,
 `chromium-bidi`, …) and one low from KaTeX. None of them is code md2s calls directly; they arrive with the
 renderer. `npm audit fix --force` will break Marp, so it is not applied here.
+
+From source, to work on md2s itself: `git clone https://github.com/torridfish/md2s.git && cd md2s`, then
+`npm ci && npm link` (the `md2s` on the PATH then runs this checkout), `md2s setup`, and `npm test`.
 
 ## Use
 
