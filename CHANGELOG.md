@@ -3,9 +3,12 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
-## Unreleased
+## 0.2.2 (2026-10-30)
 
-From a stress test that converted 18 real PowerPoint decks and compared every page (F1–F13 in its report).
+From a stress test that converted 18 real PowerPoint decks and compared every page (F1–F13 in its report),
+then a second pass over tables (best on bold cells, class rows, `{.settings}`, ragged rows, captions) and
+`md2s setup` on a bare machine. One change shows on existing decks beyond the fixes: a table's caption now
+spans the body or its layout area instead of the table (see Fixed).
 
 ### Added
 

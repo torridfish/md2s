@@ -1,6 +1,6 @@
 {
   "name": "@torridfish/md2s",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Stop making slides, do research: plain Markdown to consistent, readable academic slides (PDF, PPTX, HTML) on Marp.",
   "license": "MIT",
   "author": "Torrid Fish <justinwu6900942@gmail.com>",
