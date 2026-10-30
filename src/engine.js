@@ -541,13 +541,14 @@ function tables(md) {
       }
       // a `role` column (headed role in any header row) only when every value in the body rows is a role word,
       // x, - or empty (an untinted row): a table whose Role column holds data keeps it. A header row's cell in
-      // it is the grouped header's placeholder (x, -, ^^) and goes with the column.
+      // it is the grouped header's placeholder (x, -, ^^) and goes with the column. Of two such columns only the
+      // first is taken; the other stays a column of data.
       const UNTINTED = ['', 'x', '-'];
       const roleWords = (s) => UNTINTED.includes(s) || s.split(/\s+/).every((w) => ROLES.includes(w));
       const head = rows.some((r) => !isBody(r)) ? rows.filter((r) => !isBody(r)) : rows.slice(0, 1);
-      const roleHead = head.flatMap((r) => r.cells).find((c) => text(c).toLowerCase() === 'role');
-      let rc = roleHead ? roleHead.col : -1;
-      if (rc >= 0 && !rows.filter((r) => isBody(r) && r !== rows[0]).every((r) => { const c = at(r, rc); return !c || c.col !== rc || roleWords(text(c)); })) rc = -1;
+      const roles = (h) => rows.filter((r) => isBody(r) && r !== rows[0]).every((r) => { const c = at(r, h.col); return !c || c.col !== h.col || roleWords(text(c)); });
+      const roleHead = head.flatMap((r) => r.cells).find((c) => text(c).toLowerCase() === 'role' && roles(c));
+      const rc = roleHead ? roleHead.col : -1;
       if (rc >= 0) for (const r of rows) {
         const c = at(r, rc);
         if (!c) continue;   // a ^^ above covers it

@@ -83,18 +83,21 @@ const deck = (name) => {
 };
 const cases = deck('cases.md');
 const sections = (cases.html.match(/<section\b/g) || []).length;
-check(sections === 15, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 15 expected)`);
+check(sections === 16, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 16 expected)`);
 check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
 const tables = (cases.html.match(/<table\b/g) || []).length;
-check(tables === 14 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 14 expected), no --- cells`);
+check(tables === 15 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 15 expected), no --- cells`);
 check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
 check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
 check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
-check(!/>role</.test(cases.html) && /<tr class="ref">/.test(cases.html) && /<tr>\s*<td[^>]*>8<\/td>\s*<td[^>]*>grouped-x-row/.test(cases.html),
-  'a role column under a grouped header (x, ^^ placeholders, an x row) is not shown');
 check(cases.html.includes('hello {Task query}') && cases.html.includes('braces {Task response}'), 'braces that are not attributes stay text');
 // the table holding a marker, as one line
 const table = (marker) => ((cases.html.match(/<table[\s\S]*?<\/table>/g) || []).find((t) => t.includes(marker)) || '').replace(/\n\s*/g, '');
+check(!/>role</.test(table('grouped-x-row')) && /<tr class="ref">/.test(table('grouped-x-row')) && /<tr><td[^>]*>8<\/td><td[^>]*>grouped-x-row/.test(table('grouped-x-row')),
+  'a role column under a grouped header (x, ^^ placeholders, an x row) is not shown');
+const two = table('two-roles');
+check(/<th[^>]*>Role<\/th>/.test(two) && /<tr class="ref"><td[^>]*>planner-two<\/td><td[^>]*>two-roles<\/td><td[^>]*>a<\/td>/.test(two) && (two.match(/>role</g) || []).length === 1,
+  `a Role column of data is passed over, the first role column is taken, a second one stays data (${two})`);
 check(/<td class="best"><strong>best-on-bold<\/strong>/.test(table('best-on-bold')) && /<td class="second"><em>second-on-italic<\/em>/.test(table('best-on-bold')),
   '{.best} / {.second} on a bold or italic cell mark the cell');
 const sep = table('under-the-rule');

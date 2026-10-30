@@ -40,6 +40,14 @@ headingDivider: 2
 | x | 8 | grouped-x-row | 31.2 | 56.7 |
 | b | 8 | matched no-CoT | 31.2 | 56.7 |
 
+## Tables
+### Of two role columns only the first is taken
+
+| Role | role | Method | role |
+| --- | --- | --- | --- |
+| planner-two | ref | two-roles | a |
+| solver | b | Ours | b |
+
 ## Text
 ### Braces that are not attributes stay text
 
