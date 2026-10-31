@@ -11,7 +11,18 @@
       t.style.fontSize = '';
       const box = t.closest('.area, .body') || t.parentElement;
       const cs = getComputedStyle(box);
-      const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      let avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      // a table right in a layout's grid (no ::: area around it) has its grid column for a box
+      if (cs.display === 'grid') {
+        const item = t.parentElement === box ? t : t.closest('.captioned');
+        const tracks = cs.gridTemplateColumns.split(' ').map(parseFloat), gap = parseFloat(cs.columnGap) || 0;
+        const x = item.offsetLeft - (item.offsetParent === box ? 0 : box.offsetLeft + box.clientLeft) - parseFloat(cs.paddingLeft) - parseFloat(getComputedStyle(item).marginLeft);
+        let start = 0;
+        for (const w of tracks) {
+          if (x < start + w + gap / 2) { avail = w; break; }
+          start += w + gap;
+        }
+      }
       const fits = () => t.offsetWidth <= avail;
       if (!t.offsetWidth) continue;
       t.dataset.md2sFit = document.fonts?.status;

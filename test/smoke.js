@@ -83,10 +83,10 @@ const deck = (name) => {
 };
 const cases = deck('cases.md');
 const sections = (cases.html.match(/<section\b/g) || []).length;
-check(sections === 16, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 16 expected)`);
+check(sections === 18, `a --- at the end, or two in a row, opens no empty slide (${sections} slides, 18 expected)`);
 check(!/\(\d\/\d\)/.test(cases.html), 'a subsection with no second part is not numbered (1/2)');
 const tables = (cases.html.match(/<table\b/g) || []).length;
-check(tables === 15 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 15 expected), no --- cells`);
+check(tables === 16 && !/<td[^>]*>-{3,}<\/td>/.test(cases.html), `two tables a blank line apart stay two (${tables} tables, 16 expected), no --- cells`);
 check(/<th[^>]*>c<\/th>/.test(cases.html) && /<td[^>]*text-align:right[^>]*>4<\/td>/.test(cases.html), "the second table keeps its header and its columns' alignment");
 check(/<table[^>]*>\s*<tbody>\s*<tr>\s*<td[^>]*>first-row-stays/.test(cases.html), 'an empty header row is dropped, the first row stays a row');
 check(/<th[^>]*>Role<\/th>/.test(cases.html) && /<td[^>]*>planner<\/td>/.test(cases.html), 'a Role column of data is kept');
@@ -112,11 +112,18 @@ check(/<td rowspan="2" class="c">A<\/td><td class="c">1<\/td><td>68\.9<\/td>/.te
 check(/more cells than its header \(4 columns, the header 2\)[^\n]*ragged-row/.test(cases.err), 'a row wider than the header is warned about');
 check(/<p class="caption"[^>]*>caption-above-the-table<\/p>\s*<table/.test(cases.html), 'a [Caption] on the line above a table is its caption, above it');
 // a caption is no longer inside its table: it spans the body or the area, and stays with its table
-const shown = spawnSync(process.execPath, [path.join(__dirname, 'measure.js'), path.join(out, 'cases.html'), 'caption-narrow-table', 'caption-in-area'], { encoding: 'utf8' });
+const shown = spawnSync(process.execPath, [path.join(__dirname, 'measure.js'), path.join(out, 'cases.html'), 'caption-narrow-table', 'caption-in-area', 'grid:over-wide table in fit-left', 'grid:wide formula in fit-left'], { encoding: 'utf8' });
 const box = (() => { try { return JSON.parse(shown.stdout); } catch { return {}; } })();
 const narrow = box['caption-narrow-table'], inArea = box['caption-in-area'];
 check(narrow && narrow.lines === 1 && narrow.caption > narrow.box - 2 && narrow.table < narrow.box / 4,
   `a long caption under a narrow table spans the body on one line (${JSON.stringify(narrow || box)})`);
+// fit-left: an over-wide table stays in its column (at most 62% of the body, its font shrinks), the notes keep
+// theirs; a formula, which neither wraps nor shrinks, keeps a column as wide as itself (no overlap with the notes)
+const { 'grid:over-wide table in fit-left': wideTable, 'grid:wide formula in fit-left': wideMath } = box || {};
+const apart = (g) => g && g.cells.length === 2 && g.cells[0].reach <= g.cells[1].left + 1 && g.cells[1].reach <= g.body.right + 1 && g.cells[1].right - g.cells[1].left > 100;
+check(apart(wideTable) && wideTable.cells[0].right - wideTable.body.left <= (wideTable.body.right - wideTable.body.left) * 0.62 + 1,
+  `an over-wide table in fit-left stays within 62% of the body, beside its notes (${JSON.stringify(wideTable)})`);
+check(apart(wideMath), `a wide formula in fit-left keeps its column; the notes start after it (${JSON.stringify(wideMath)})`);
 check(inArea && /area-b/.test(inArea.captionArea) && inArea.captionArea === inArea.tableArea && inArea.caption > inArea.box * 0.9,
   `a caption stays with its table in its area, as wide as the area (${JSON.stringify(inArea || box)})`);
 

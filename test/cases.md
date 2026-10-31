@@ -41,6 +41,36 @@ headingDivider: 2
 | b | 8 | matched no-CoT | 31.2 | 56.7 |
 
 ## Tables
+### An over-wide table in fit-left
+
+<!-- _layout: fit-left -->
+
+::: a
+| Checkpoint path | Acc |
+| --- | --: |
+| hf.co/models--meta-llama--Llama-3.1-8B-Instruct-4bit/hf.co/models--meta-llama--Llama-3.1-8B-Instruct-4bit/hf.co/models--meta-llama--Llama-3.1-8B-Instruct-4bit | 68.9 |
+:::
+
+::: b
+- the notes keep their column
+:::
+
+## Math
+### A wide formula in fit-left
+
+<!-- _layout: fit-left -->
+
+::: a
+$$
+\mathcal{L}(\theta) = \mathbb{E}_{(x,y)\sim\mathcal{D}}\left[-\sum_{t=1}^{T}\log p_\theta(y_t \mid y_{<t}, x)\right] + \lambda \lVert \theta - \theta_0 \rVert_2^2 + \beta\,\mathrm{KL}(p_\theta \Vert p_{\mathrm{ref}}) + \gamma\,\mathbb{E}_{x}\left[\lVert \nabla_x \ell(x) \rVert^2\right]
+$$
+:::
+
+::: b
+- the notes start after the formula
+:::
+
+## Tables
 ### Of two role columns only the first is taken
 
 | Role | role | Method | role |

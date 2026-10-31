@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // npm test's browser half: open an HTML deck md2s built, show each slide holding a p.caption whose text starts
-// with one of the given markers, and print (JSON) the caption's and its table's boxes and areas
+// with one of the given markers, and print (JSON) the caption's and its table's boxes and areas. A marker
+// `grid:<text>` takes the slide whose ### holds <text> instead, and prints each grid cell's box and how far
+// its content (tables, formulas, list items) reaches
 //
 //   node test/measure.js deck.html marker…
 'use strict';
@@ -19,6 +21,24 @@ const puppeteer = require(require.resolve('puppeteer-core', { paths: [cli] }));
     await page.setViewport({ width: 960, height: 540 });
     await page.goto(`file://${path.resolve(file)}`, { waitUntil: 'load' });
     for (const marker of markers) {
+      if (marker.startsWith('grid:')) {
+        const k = await page.evaluate((m) => [...document.querySelectorAll('section')].findIndex((s) => (s.querySelector('h3') || {}).textContent?.includes(m)), marker.slice(5));
+        if (k < 0) { out[marker] = null; continue; }
+        await page.evaluate((k) => { location.hash = `#${k + 1}`; }, k);
+        await new Promise((r) => setTimeout(r, 300));
+        out[marker] = await page.evaluate((k) => {
+          const body = document.querySelectorAll('section')[k].querySelector('.body');
+          const r = (e) => e.getBoundingClientRect();
+          return {
+            body: { left: r(body).left, right: r(body).right },
+            cells: [...body.children].map((c) => ({
+              left: r(c).left, right: r(c).right,
+              reach: Math.max(r(c).right, ...[...c.querySelectorAll('table, .katex .base, li')].map((e) => r(e).right)),
+            })),
+          };
+        }, k);
+        continue;
+      }
       const k = await page.evaluate((m) => [...document.querySelectorAll('section')].findIndex((s) => [...s.querySelectorAll('p.caption')].some((c) => c.textContent.startsWith(m))), marker);
       if (k < 0) { out[marker] = null; continue; }
       await page.evaluate((k) => { location.hash = `#${k + 1}`; }, k);

@@ -163,8 +163,13 @@ section > .body.layout {
   display: grid; gap: var(--block-gap) var(--column-gap); align-items: start;
   grid-template: "a b" minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr);       /* two: halves side by side */
 }
-section > .body.layout-fit-left, section > .body.layout-img-left { grid-template: "a b" minmax(0, 1fr) / max-content minmax(0, 1fr); column-gap: 12px; }
-section > .body.layout-fit-right, section > .body.layout-img-right { grid-template: "a b" minmax(0, 1fr) / minmax(0, 1fr) max-content; column-gap: 12px; }
+section > .body.layout-img-left { grid-template: "a b" minmax(0, 1fr) / max-content minmax(0, 1fr); column-gap: 12px; }
+section > .body.layout-img-right { grid-template: "a b" minmax(0, 1fr) / minmax(0, 1fr) max-content; column-gap: 12px; }
+/* a table's column is as wide as the table, up to 62% of the body: a wider table gets a smaller font (fit.js) */
+section > .body.layout-fit-left { grid-template: "a b" minmax(0, 1fr) / fit-content(62%) minmax(0, 1fr); column-gap: 12px; }
+section > .body.layout-fit-right { grid-template: "a b" minmax(0, 1fr) / minmax(0, 1fr) fit-content(62%); column-gap: 12px; }
+section > .body:is(.layout-fit-left, .layout-fit-right) > :is(table, .captioned) { min-width: 0; }
+section > .body:is(.layout-fit-left, .layout-fit-right) > .area:has(.katex-display) { min-width: auto; }   /* a formula neither wraps nor shrinks: its column stays as wide */
 section > .body.layout-rows { grid-template: "a" minmax(0, 1fr) "b" minmax(0, 1fr) / minmax(0, 1fr); }
 section > .body.layout.middle { align-content: center; align-items: center; }
 section > .body.layout.middle > .area { justify-content: center; }
