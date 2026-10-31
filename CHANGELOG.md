@@ -3,6 +3,35 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
+## 0.3.1 (2026-10-30)
+
+Fixes: `md2s setup` no longer leaves a broken TinyTeX that `md2s --check` passes, two `role` columns, and
+over-wide tables in `fit-left` / `fit-right`. One change on purpose (see Changed): a table in a `fit-left` /
+`fit-right` column now wraps or shrinks past 62% of the body.
+
+### Changed
+
+- A `fit-left` / `fit-right` table's column stops at 62% of the body, the share a picture gets beside text.
+  Before, the column was as wide as the table whatever it took: a table wider than the slide ran off the page
+  and pushed the other area off it, or squeezed it to one letter a line, and the layout check reported at
+  most a few pixels past the margin. A wider table now wraps its cells and then gets a smaller font, and
+  the other area keeps its room. This also means a table between 62% and the full body width, which used to
+  fit, now wraps or shrinks to 62%: that is deliberate. A formula's column is not capped (a formula can
+  neither wrap nor shrink), and `img-left` / `img-right` are unchanged. The gallery renders
+  the same.
+
+### Fixed
+
+- `md2s setup`: when `tlmgr` failed, the TinyTeX it had unpacked (about 180 MB) stayed, and `md2s --check`
+  reported its `pdflatex` as ok while `algorithm2e` was missing, so an `algo` fence failed only at build time.
+  Any failed TinyTeX step (download, unpack, `tlmgr`) now removes the whole tree, the message says what to do
+  next (check the network and run `md2s setup` again, or install TeX Live), and md2s uses its TinyTeX only
+  once that TinyTeX's own `kpsewhich` finds `algorithm2e.sty` and `standalone.cls`. A tree left by an older
+  md2s or an interrupted setup is reported missing, and `md2s setup` installs it again.
+- A table with two `role` columns: a `Role` column of data in front hid the real one, which then printed
+  `a` / `b` as data. The first column headed role whose values are all role words is taken; a second one
+  stays a column of data (`md2s --skill` says so).
+
 ## 0.3.0 (2026-10-30)
 
 A second pass over tables (best on bold cells, class rows, `{.settings}`, ragged rows, captions) and
