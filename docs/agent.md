@@ -14,6 +14,7 @@ md2s deck.md --serve               # present at http://localhost:8080/deck.md (-
 md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
 md2s deck.md --no-check            # skip the layout check that warns about overflow (see Notes)
+md2s deck.md --pdf --handout [4]   # + deck-handout.pdf: the slides 2- or 4-up on A4 portrait, to print
 md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
 md2s deck.md --thanks-text "Questions?"   # the same page with other words
 md2s --check                       # which tools (Chrome, TeX, ffmpeg …) are installed
@@ -319,6 +320,9 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
 ## Notes
 
 - Render caches: TeX, diagram and media renders live in `~/.cache/md2s/`, keyed by content.
+- `--handout` tiles the built PDF's vector slides onto A4 portrait, two a page (`--handout 4`: four), each
+  in a hairline frame, into `<deck>-handout.pdf`. It builds the PDF when it was not asked for, and cannot
+  run with `--watch`.
 - Citations and footnotes are separate: a citation `[@key]` points into the bibliography and the References slides; a footnote `[^x]` is a note at the foot of its slide.
 - Footnotes are numbered 1, 2 per slide in the order they are cited, marked by an italic superscript number in the text and at the foot (square brackets are left to citations); the mark in the text links to its footnote in the PDF. A definition nobody cites (a caveat or link for the whole slide) goes, after the cited ones, to the slide whose source it sits in.
 - After each build (not `--watch`; `--no-check` skips it) md2s lays the deck out again in the browser and

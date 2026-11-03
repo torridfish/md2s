@@ -23,10 +23,10 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --png                 one PNG per slide
   md2s deck.md --pptx --scale 4      PPTX / PNG pictures at 4x the 960x540 canvas (default 3)
   md2s deck.md --thanks              close with a "Thanks for listening." page (--thanks-text T)
+  md2s deck.md --pdf --handout [4]   + deck-handout.pdf: the slides 2- or 4-up on A4 portrait, to print
   md2s deck.md --pdf -o out/         write into another folder
   md2s deck.md --no-check            skip the layout check (after every build but --watch, md2s warns
                                      about content cut off or over the margins, and titles over two lines)
-
   md2s --skill                       the Markdown syntax, written for an agent (or you)
   md2s --check                       which tools (Chrome, TeX, ffmpeg …) are present
   md2s setup [--yes]                 install what is missing, asking first: a browser and TinyTeX in
@@ -49,7 +49,7 @@ const args = process.argv.slice(2);
 if (args[0] === 'tex2img') process.exit(spawnSync(path.join(ROOT, 'scripts', 'tex2img.sh'), args.slice(1), { stdio: 'inherit' }).status ?? 1);
 if (args[0] === 'setup') { tools.setup(ROOT, args.slice(1)); return; }
 
-let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '', layoutCheck = true;
+let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '', layoutCheck = true, handout = 0;
 const formats = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -63,6 +63,15 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '-o') outdir = value();
   else if (a === '--thanks') thanks = thanks || 'Thanks for listening.';
   else if (a === '--thanks-text') thanks = value();
+  else if (a === '--handout') {
+    // the slides per page is optional, taken only when the next argument is a number, so
+    // `md2s --handout deck.md` still names the deck
+    const next = args[i + 1];
+    if (next !== undefined && /^\d+$/.test(next)) {
+      if (next === '2' || next === '4') { i += 1; handout = +next; }
+      else fail(`--handout takes 2 or 4, not ${next}`);
+    } else handout = handout || 2;
+  }
   else if (a === '--skill') { process.stdout.write(fs.readFileSync(path.join(ROOT, 'docs', 'agent.md'), 'utf8')); process.exit(0); }
   else if (a === '--check') { tools.check(ROOT); process.exit(0); }
   else if (a === '--version' || a === '-v') { console.log(require(path.join(ROOT, 'package.json')).version); process.exit(0); }
@@ -74,6 +83,9 @@ if (!src) { console.log(HELP); process.exit(2); }
 if (!fs.existsSync(src)) fail(`no such file: ${src}`);
 if (!MARP) fail(`node packages missing: run npm ci in ${ROOT}`);
 if (!formats.length) formats.push('pdf');
+// the handout tiles the vector PDF, so build one even when the deck was asked for as --html
+if (handout && !formats.includes('pdf')) formats.push('pdf');
+if (handout && watch) fail('--handout needs the build to finish; --watch rebuilds forever');
 if (watch && formats.length > 1) fail('--watch takes one format');
 if (formats.some((f) => f !== 'html') && !tools.browser()) {
   fail('no browser found for PDF / PPTX / PNG: run md2s setup, set CHROME_PATH, or build --html');
@@ -97,11 +109,19 @@ if (serve) {
 const out = outdir || path.dirname(src);
 fs.mkdirSync(out, { recursive: true });
 const stem = path.basename(src).replace(/\.[^.]+$/, '');
-for (const f of formats) {
-  const flag = f === 'png' ? ['--images', 'png'] : [`--${f}`];
-  marp([...flag, ...(scale ? ['--image-scale', scale] : []), ...(watch ? ['--watch'] : []), '-o', path.join(out, `${stem}.${f}`), '--', src], f);
-}
-// what Chrome cut off or drew over the margins, slide by slide (src/layout.js); --watch rebuilds without it
-if (layoutCheck && !watch) {
-  spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
-}
+(async () => {
+  for (const f of formats) {
+    const flag = f === 'png' ? ['--images', 'png'] : [`--${f}`];
+    marp([...flag, ...(scale ? ['--image-scale', scale] : []), ...(watch ? ['--watch'] : []), '-o', path.join(out, `${stem}.${f}`), '--', src], f);
+  }
+  // the handout, tiled from the vector PDF the build just wrote (src/handout.js)
+  if (handout) {
+    const { handout: tile } = require(path.join(ROOT, 'src', 'handout.js'));
+    try { await tile(path.join(out, `${stem}.pdf`), path.join(out, `${stem}-handout.pdf`), handout); }
+    catch (e) { fail(`handout: ${String(e.message).split('\n')[0]}`); }
+  }
+  // what Chrome cut off or drew over the margins, slide by slide (src/layout.js); --watch rebuilds without it
+  if (layoutCheck && !watch) {
+    spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
+  }
+})();

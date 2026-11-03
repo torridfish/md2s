@@ -5,7 +5,7 @@ What changed in each version that a deck or an install would notice. Versions fo
 
 ## Unreleased
 
-Two additions; a deck that uses neither renders as it did.
+Three additions; a deck that uses none of them renders as it did.
 
 ### Added
 
@@ -18,6 +18,9 @@ Two additions; a deck that uses neither renders as it did.
   the end and anything else in the value are ignored); a ```` ```diff ```` fence tints its `+` lines green
   and `-` lines red, the markers kept. The line-number gutter column stays plain, and the tint sits on
   spans that carry no text, so selecting or copying code picks up nothing extra.
+- `--handout [2|4]` (default 2): `<deck>-handout.pdf`, the built PDF's vector slides tiled on A4 portrait,
+  two or four a page, each in a hairline frame, the PDF's Title and Author kept. It builds the PDF when it
+  was not asked for (`--html --handout` writes all three) and cannot run with `--watch`.
 
 ## 0.3.1 (2026-10-30)
 
