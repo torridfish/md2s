@@ -15,6 +15,7 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 - callouts (`> [!NOTE]`), tables with row tints, code with line numbers that copying leaves out
 - ```` ```dot ```` (Graphviz) and ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs, videos and YouTube links
 - a deck in several files (```` ```include ````, one file per line), tinted code lines (`{hl=3-5,8}`) and ```` ```diff ```` patches
+- `--handout`: the PDF's slides tiled 2- or 4-up on A4 to print, `--strict`: layout warnings fail the build, for CI
 - a `###` that runs over continues after `---`, numbered (1/2), (2/2)
 
 ## Install
@@ -49,6 +50,8 @@ From source, to work on md2s itself: `git clone https://github.com/torridfish/md
 md2s deck.md                   # deck.pdf
 md2s deck.md --pdf --pptx --html
 md2s deck.md --serve           # present at http://localhost:8080/deck.md
+md2s deck.md --handout 4       # deck-handout.pdf too: four slides on each A4 page (2 by default)
+md2s deck.md --strict          # exit 1 when the layout check warns, for CI
 md2s --skill                   # every bit of syntax, written for an agent (or you)
 ```
 

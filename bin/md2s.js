@@ -27,6 +27,9 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --pdf -o out/         write into another folder
   md2s deck.md --no-check            skip the layout check (after every build but --watch, md2s warns
                                      about content cut off or over the margins, and titles over two lines)
+  md2s deck.md --strict              the layout check's warnings fail the build (exit 1), and so does a
+                                     check that cannot run at all: a gate for CI; --no-check skips it
+
   md2s --skill                       the Markdown syntax, written for an agent (or you)
   md2s --check                       which tools (Chrome, TeX, ffmpeg …) are present
   md2s setup [--yes]                 install what is missing, asking first: a browser and TinyTeX in
@@ -49,7 +52,7 @@ const args = process.argv.slice(2);
 if (args[0] === 'tex2img') process.exit(spawnSync(path.join(ROOT, 'scripts', 'tex2img.sh'), args.slice(1), { stdio: 'inherit' }).status ?? 1);
 if (args[0] === 'setup') { tools.setup(ROOT, args.slice(1)); return; }
 
-let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '', layoutCheck = true, handout = 0;
+let src = '', outdir = '', watch = false, serve = false, port = '8080', scale = null, thanks = '', layoutCheck = true, strict = false, handout = 0;
 const formats = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
@@ -63,6 +66,7 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '-o') outdir = value();
   else if (a === '--thanks') thanks = thanks || 'Thanks for listening.';
   else if (a === '--thanks-text') thanks = value();
+  else if (a === '--strict') strict = true;
   else if (a === '--handout') {
     // the slides per page is optional, taken only when the next argument is a number, so
     // `md2s --handout deck.md` still names the deck
@@ -122,6 +126,7 @@ const stem = path.basename(src).replace(/\.[^.]+$/, '');
   }
   // what Chrome cut off or drew over the margins, slide by slide (src/layout.js); --watch rebuilds without it
   if (layoutCheck && !watch) {
-    spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src, ...(strict ? ['--strict'] : [])], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
+    if (strict && r.status) process.exit(r.status);   // CI gate: warnings, or a check that never ran, fail the build
   }
 })();

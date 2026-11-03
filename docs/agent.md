@@ -15,6 +15,8 @@ md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
 md2s deck.md --no-check            # skip the layout check that warns about overflow (see Notes)
 md2s deck.md --pdf --handout [4]   # + deck-handout.pdf: the slides 2- or 4-up on A4 portrait, to print
+md2s deck.md --strict              # the layout check's warnings fail the build (exit 1), and so does a
+                                     # check that could not run: a gate for CI
 md2s deck.md --thanks              # append a "Thanks for listening." page (off by default)
 md2s deck.md --thanks-text "Questions?"   # the same page with other words
 md2s --check                       # which tools (Chrome, TeX, ffmpeg …) are installed
@@ -330,4 +332,6 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
   band, or cut off at the bottom), a line, table or picture past the margins or the slide's edge, a heading
   painted over the header, a title or subtitle on a third line. Fix each one in the Markdown (split the
   slide with `---`, shorten, pick a `_layout`). The check cannot judge looks: still read the pages.
+  `--strict` makes any of these warnings fail the build (exit 1), and so does a check that could not run
+  (no browser); `--no-check` skips the check either way.
 - Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

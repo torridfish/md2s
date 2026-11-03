@@ -5,6 +5,9 @@
 // take (two fit; a third pushes the body down). Each problem is a warning naming the slide; the build stands.
 //
 //   node src/layout.js deck.md      (MD2S_DECK_DIR, MD2S_FORMAT and MD2S_THANKS as for Marp)
+//
+// --strict (or MD2S_STRICT=1) makes the warnings fail the build instead (exit 1), and so does a check
+// that cannot run at all (no browser, an error): in CI a silent pass is worse than a failure.
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -12,7 +15,9 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 
 const ROOT = path.join(__dirname, '..');
-const warn = (msg) => process.stderr.write(`md2s: ${msg}\n`);
+const strict = process.argv.slice(2).includes('--strict') || process.env.MD2S_STRICT === '1';
+let warnings = 0;
+const warn = (msg) => { warnings += 1; process.stderr.write(`md2s: ${msg}\n`); };
 const SLACK = 2;   // px on the 960 x 540 canvas: rounding and glyph overhang (an italic, an equation number), not overflow
 
 // everything below runs in the page: one entry per problem, { slide, label, what }
@@ -87,7 +92,11 @@ function measure(slack) {
 (async () => {
   const deck = path.resolve(process.argv[2]);
   const exe = require('./setup.js').chromium();
-  if (!exe) { warn('layout check skipped: it needs Chrome, Chromium or Edge (md2s setup)'); return; }
+  if (!exe) {
+    warn('layout check skipped: it needs Chrome, Chromium or Edge (md2s setup)');
+    if (strict) { warn('strict: the check did not run, so the deck is unchecked: failing the build'); process.exitCode = 1; }
+    return;
+  }
   process.env.MD2S_QUIET = '1';   // the engine's own warnings came with the build
   const config = require('./config.js');
   // Marp's own marp-core and puppeteer-core, found from marp-cli wherever npm put them
@@ -110,8 +119,12 @@ function measure(slack) {
     await page.goto(pathToFileURL(file).href, { waitUntil: 'load', timeout: 60000 });
     await page.evaluate(() => document.fonts.ready);
     for (const i of await page.evaluate(measure, SLACK)) warn(`slide ${i.slide}${i.label ? ` (${i.label})` : ''}: ${i.what}`);
+    if (strict && warnings) { warn(`strict: ${warnings} layout warning${warnings > 1 ? 's' : ''}: failing the build`); process.exitCode = 1; }
   } finally {
     await browser.close();
     fs.rmSync(dir, { recursive: true, force: true });
   }
-})().catch((e) => { warn(`layout check failed: ${String(e.message).split('\n')[0]}`); });
+})().catch((e) => {
+  warn(`layout check failed: ${String(e.message).split('\n')[0]}`);
+  if (strict) { warn('strict: the check did not finish, so the deck is unchecked: failing the build'); process.exitCode = 1; }
+});

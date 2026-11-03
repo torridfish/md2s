@@ -5,7 +5,7 @@ What changed in each version that a deck or an install would notice. Versions fo
 
 ## Unreleased
 
-Three additions; a deck that uses none of them renders as it did.
+Four additions; a deck that uses none of them renders as it did.
 
 ### Added
 
@@ -21,6 +21,8 @@ Three additions; a deck that uses none of them renders as it did.
 - `--handout [2|4]` (default 2): `<deck>-handout.pdf`, the built PDF's vector slides tiled on A4 portrait,
   two or four a page, each in a hairline frame, the PDF's Title and Author kept. It builds the PDF when it
   was not asked for (`--html --handout` writes all three) and cannot run with `--watch`.
+- `--strict`: the layout check's warnings fail the build (exit 1), and so does a check that could not run
+  (no browser); without it, or with `--no-check`, nothing changes. A gate for CI.
 
 ## 0.3.1 (2026-10-30)
 
