@@ -12,7 +12,7 @@
 //     ```prompt marked up, ```include expanded from other files (one path per line, relative to the file
 //     that includes it, those files' own includes included),
 //     every other fence monokai on a dark box with line numbers ({path="pkg/mod.py"} labels it,
-//     {start=42} sets the first line number)
+//     {start=42} sets the first line number, {hl=3-5,8} tints lines; a ```diff fence tints its + and - lines)
 //   - inline marks: ==WIP==, [text]{.callout|.alert|.formula|.faint|.token}, # Name {.divider}
 //   - a ### may leave out a ## that repeats the previous slide's; front matter `toc: true` adds a contents
 //     slide after the first one, listing every ## with its ### (part numbers like (1/2) dropped)
@@ -642,8 +642,9 @@ function promptHtml(text, esc) {
   }).join('\n');
 }
 
-/** Wrap highlighted code in per-line spans, closing and reopening spans that cross a newline. */
-function numberLines(html) {
+/** Wrap highlighted code in per-line spans, closing and reopening spans that cross a newline. tint, when
+    given, returns extra classes for line k ({hl=…} and a ```diff fence tint their lines this way). */
+function numberLines(html, tint) {
   const lines = [];
   let cur = '', open = [];
   for (const piece of html.split(/(<[^>]+>|\n)/)) {
@@ -653,7 +654,7 @@ function numberLines(html) {
     cur += piece;
   }
   if (cur.replace(/<[^>]+>/g, '').length || !lines.length) lines.push(cur + '</span>'.repeat(open.length));
-  return lines.map((l) => `<span class="line">${l || ' '}</span>`).join('');
+  return lines.map((l, k) => `<span class="line${tint ? tint(k) : ''}">${l || ' '}</span>`).join('');
 }
 
 // ---------- diagrams: ```dot as inline SVG ----------
@@ -696,8 +697,18 @@ function fences(md) {
     if (lang === 'prompt') return `<pre class="prompt">${promptHtml(t.content.replace(/\n$/, ''), md.utils.escapeHtml)}</pre>\n`;
     const label = t.attrGet('path');
     const start = Math.max(1, parseInt(t.attrGet('start'), 10) || 1);
-    t.attrs = (t.attrs || []).filter(([k]) => !['path', 'start', 'scale'].includes(k));
+    const hlRaw = t.attrGet('hl');
+    t.attrs = (t.attrs || []).filter(([k]) => !['path', 'start', 'scale', 'hl'].includes(k));
     const src = t.content.replace(/\n$/, '').split('\n');
+    // {hl=3-5,8}: the lines to tint, comma-separated N or N-M, 1-based in the block; numbers past the end
+    // and anything else in the value are ignored
+    const hl = new Set();
+    for (const part of String(hlRaw || '').split(',')) {
+      const m = part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+      if (!m || +m[1] < 1) continue;
+      const end = m[2] === undefined ? +m[1] : Math.min(+m[2], src.length);
+      for (let k = +m[1]; k <= end; k++) hl.add(k);
+    }
     const digits = String(start + src.length - 1).length;
     const longest = Math.max(...src.map((l) => l.replace(/\t/g, '    ').length));
     // line numbers are a gutter column before the code, not part of each line: selecting or copying code
@@ -706,9 +717,13 @@ function fences(md) {
     const deck = !(env && env.md2s && env.md2s['line-numbers'] === false);
     const numbered = /\bno-lines\b/.test(cls) ? false : /(^|\s)lines\b/.test(cls) ? true : deck;
     const gutter = numbered ? `<span class="ln" aria-hidden="true">${src.map((_, k) => start + k).join('\n')}</span>` : '';
+    // the tint classes go on the per-line spans inside <code>: the gutter column stays plain, and the
+    // spans carry no text of their own, so selecting or copying a line picks up nothing extra
+    const tint = (k) => (hl.has(k + 1) ? ' hl' : '')
+      + (lang === 'diff' ? (/^\+/.test(src[k]) ? ' diff-add' : /^-/.test(src[k]) ? ' diff-del' : '') : '');
     const html = fence(tokens, idx, options, env, self)
       .replace(/<pre\b/, `<pre style="--code-cols: ${(longest + (numbered ? digits + 1.6 : 0)).toFixed(1)}"`)
-      .replace(/(<code[^>]*)>([\s\S]*?)(<\/code>)/, (_, a, body, c) => `${gutter}${a}>${numberLines(body.replace(/\n$/, ''))}${c}`);
+      .replace(/(<code[^>]*)>([\s\S]*?)(<\/code>)/, (_, a, body, c) => `${gutter}${a}>${numberLines(body.replace(/\n$/, ''), tint)}${c}`);
     return '<div class="code"><div class="code-box">' + (label ? `<div class="code-path">${md.utils.escapeHtml(label)}</div>` : '') + html + '</div></div>\n';
   };
 }
@@ -1374,7 +1389,7 @@ module.exports = ({ marp }) => {
     .use(require('markdown-it-bracketed-spans'))
     // MultiMarkdown tables: || spans the next column, ^^ the row above, two header rows, [Caption]
     .use(require('markdown-it-multimd-table'), { multiline: false, rowspan: true, headerless: false, multibody: true })
-    .use(require('markdown-it-attrs'), { allowedAttributes: ['class', 'style', 'scale', 'path', 'start'] })
+    .use(require('markdown-it-attrs'), { allowedAttributes: ['class', 'style', 'scale', 'path', 'start', 'hl'] })
     .use(spansPastAttrs)
     .use(bracesPastAttrs)
     .use(require('markdown-it-container'), 'area', {

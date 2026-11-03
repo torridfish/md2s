@@ -14,6 +14,7 @@ It is [Marp](https://marp.app) underneath, plus what research talks need and Mar
 - layouts without CSS: `<!-- _layout: img-right -->`, `::: a` areas, `middle`
 - callouts (`> [!NOTE]`), tables with row tints, code with line numbers that copying leaves out
 - ```` ```dot ```` (Graphviz) and ```` ```algo ```` (algorithm2e) fences, PDF pages, GIFs, videos and YouTube links
+- a deck in several files (```` ```include ````, one file per line), tinted code lines (`{hl=3-5,8}`) and ```` ```diff ```` patches
 - a `###` that runs over continues after `---`, numbered (1/2), (2/2)
 
 ## Install

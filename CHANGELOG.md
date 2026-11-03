@@ -5,7 +5,7 @@ What changed in each version that a deck or an install would notice. Versions fo
 
 ## Unreleased
 
-One addition; a deck that does not use it renders as it did.
+Two additions; a deck that uses neither renders as it did.
 
 ### Added
 
@@ -14,6 +14,10 @@ One addition; a deck that does not use it renders as it did.
   followed, relative to it. A missing file, a circle of includes or more than 8 levels deep leaves a red
   marker on the slide and a warning; the build goes on. A ```` ```include ```` inside another fence or an
   HTML comment stays text.
+- `{hl=3-5,8}` on any code fence tints those lines (comma-separated `N` or `N-M`, 1-based; numbers past
+  the end and anything else in the value are ignored); a ```` ```diff ```` fence tints its `+` lines green
+  and `-` lines red, the markers kept. The line-number gutter column stays plain, and the tint sits on
+  spans that carry no text, so selecting or copying code picks up nothing extra.
 
 ## 0.3.1 (2026-10-30)
 

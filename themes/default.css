@@ -342,6 +342,12 @@ p.table-notes { font-size: var(--note-size); color: var(--ink-muted); text-align
 .code .hljs-built_in, .code .hljs-type, .code .hljs-class .hljs-title { color: #66D9EF; }
 .code .hljs-params, .code .hljs-variable, .code .hljs-template-variable { color: #FD971F; }
 .code .hljs-meta { color: #75715E; }
+/* {hl=3-5,8} tints those lines of any fence; a ```diff fence tints its + and - lines. The classes sit on
+   the per-line spans inside <code>, so the line-number gutter column stays plain, and the spans carry no
+   text of their own: selecting or copying a line picks up nothing extra. Semi-transparent monokai tints */
+.code .line.hl { background: rgba(230, 219, 116, 0.16); }
+.code .line.diff-add { background: rgba(166, 226, 46, 0.15); }
+.code .line.diff-del { background: rgba(249, 38, 114, 0.15); }
 
 /* prompt templates stay slide text: role bold, {placeholders} bold red, <|tokens|> on mark-blue */
 pre.prompt { margin: 0; padding: var(--space-2); font: 13.33px/1.2 var(--mono); white-space: pre-wrap; background: none; color: var(--ink); }
