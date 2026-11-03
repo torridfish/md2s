@@ -100,6 +100,25 @@ slide lists the subsection once. Do not write the part numbers by hand. With `he
 With `headingDivider: 2` a `---` still forces a break; any Markdown rule (`---`, `***`) is a slide break
 in Marp, so a body rule inside a slide is `<hr class="rule">`.
 
+## Includes
+
+A deck may be written in several files: a ```` ```include ```` fence pulls each named file in, in place, as
+though its lines were written there — its headings are the deck's slides, its tables and figures the
+deck's. One file per line, its path relative to the file that names it.
+
+````markdown
+```include
+intro.md
+results/tables.md
+```
+````
+
+An included file's front matter is stripped, not merged in (the deck's own settings stand), and its own
+```` ```include ```` fences are followed, relative to it. A file that includes itself, directly or in a
+circle, or more than 8 levels of includes, stops there: a red marker on the slide and a warning, and the
+build goes on — the same for a path that names no file. A ```` ```include ```` inside another fence or an
+HTML comment stays text.
+
 ## Slide types
 
 All text is Times New Roman: 24pt titles (30pt on the title page), 14pt subtitles, 11pt leads and body,

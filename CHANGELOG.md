@@ -3,6 +3,18 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
+## Unreleased
+
+One addition; a deck that does not use it renders as it did.
+
+### Added
+
+- ```` ```include ```` fences: a deck written in several files. Each named file (one path per line,
+  relative to the file that names it) is pulled in in place, its front matter stripped and its own includes
+  followed, relative to it. A missing file, a circle of includes or more than 8 levels deep leaves a red
+  marker on the slide and a warning; the build goes on. A ```` ```include ```` inside another fence or an
+  HTML comment stays text.
+
 ## 0.3.1 (2026-10-30)
 
 Fixes: `md2s setup` no longer leaves a broken TinyTeX that `md2s --check` passes, two `role` columns, and

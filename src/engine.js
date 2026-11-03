@@ -9,7 +9,8 @@
 //     exports at 192 px/in) unless Marp's w:/h: keywords size it; an image title ![](f.png "4-01") is its run label
 //   - tables: a `role` column (ref / a / b) tints rows and is dropped; {.settings} after a table
 //   - fences: ```algo (algorithm2e) and ```latex {.render} rendered by tex2img.sh, ```dot as inline SVG,
-//     ```prompt marked up,
+//     ```prompt marked up, ```include expanded from other files (one path per line, relative to the file
+//     that includes it, those files' own includes included),
 //     every other fence monokai on a dark box with line numbers ({path="pkg/mod.py"} labels it,
 //     {start=42} sets the first line number)
 //   - inline marks: ==WIP==, [text]{.callout|.alert|.formula|.faint|.token}, # Name {.divider}
@@ -739,6 +740,88 @@ function marks(md) {
   });
 }
 
+// ---------- includes: ```include fence, one file per line, for a deck written in several files ----------
+// Expanded before anything else — the leading ---, citations, the rest of the source rewrites — so the
+// deck is its files put together. Each path is read relative to the directory of the file that includes
+// it (the deck's directory, MD2S_DECK_DIR, at the top), its front matter stripped, its own ```include
+// fences expanded in turn. A missing file, an include already being expanded (a cycle) or more than 8
+// levels of nesting is a red marker on the slide and a warning on stderr; the build goes on.
+const INCLUDE_DEPTH = 8;
+const alert = (msg) => `<span class="alert">${String(msg).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>`;
+
+/** An included file's front matter (settings of its own) is stripped, not merged into the deck's. */
+function stripFrontMatter(src) {
+  const m = src.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+  return m && Object.keys(frontMatter(src)).length ? src.slice(m[0].length) : src;
+}
+
+/** A fence closes with the same characters, only those, at least as long as its opening run. */
+const fenceCloser = (marker) => new RegExp(`^\\s*${marker[0]}{${marker.length},}[ \\t]*$`);
+
+/** Expand src's ```include fences. Only fences count: one inside another fence (a ```markdown example) or
+    an HTML comment is slide text, and the deck's own front matter is skipped. chain holds the realpaths of
+    the files on the way in (an include already in it is a cycle); depth counts the include levels. */
+function includes(src, dir, chain = new Set(), depth = 0) {
+  const lines = src.split('\n');
+  const out = [];
+  let i = 0, fence = null, comment = false;
+  if (/^---[ \t]*$/.test(lines[0] || '')) {
+    const end = lines.findIndex((l, k) => k > 0 && /^---[ \t]*$/.test(l));
+    if (end < 0) return src;
+    out.push(...lines.slice(0, end + 1));
+    i = end + 1;
+  }
+  for (; i < lines.length; i++) {
+    const l = lines[i];
+    if (fence) { if (fence.test(l)) fence = null; out.push(l); continue; }
+    if (comment) { if (l.includes('-->')) comment = false; out.push(l); continue; }
+    const f = l.match(/^\s*(`{3,}|~{3,})(.*)$/);
+    if (!f) {
+      if (/^\s*<!--/.test(l) && !l.includes('-->')) comment = true;
+      out.push(l);
+      continue;
+    }
+    fence = fenceCloser(f[1]);
+    if (f[2].trim().toLowerCase() !== 'include') { out.push(l); continue; }
+    let end = i + 1;
+    while (end < lines.length && !fence.test(lines[end])) end++;
+    fence = null;
+    const files = [];
+    for (const name of lines.slice(i + 1, end)) {
+      const file = name.trim();
+      if (!file) continue;
+      let real;
+      try { real = fs.realpathSync(path.resolve(dir, file)); } catch {
+        warn(`include: no such file — ${file}`);
+        files.push(alert(`include: no such file — ${file}`));
+        continue;
+      }
+      if (chain.has(real)) {
+        warn(`include: cycle — ${file} is already being included`);
+        files.push(alert(`include: cycle — ${file}`));
+        continue;
+      }
+      if (depth >= INCLUDE_DEPTH) {
+        warn(`include: more than ${INCLUDE_DEPTH} levels deep — ${file}`);
+        files.push(alert(`include: too deep — ${file}`));
+        continue;
+      }
+      let text;
+      try { text = fs.readFileSync(real, 'utf8'); } catch (e) {
+        warn(`include: ${file}: ${e.code || e.message}`);
+        files.push(alert(`include: cannot read — ${file}`));
+        continue;
+      }
+      chain.add(real);
+      files.push(includes(stripFrontMatter(text).replace(/\s+$/, ''), path.dirname(real), chain, depth + 1));
+      chain.delete(real);
+    }
+    out.push('', ...files.join('\n\n').split('\n'), '');
+    i = end;
+  }
+  return out.join('\n');
+}
+
 // ---------- source rewrites: repeated titles, table of contents, thanks page ----------
 const DIVIDED = /^\s*headingDivider:\s*[1-6]|<!--\s*headingDivider:\s*[1-6]/m;
 
@@ -1253,6 +1336,7 @@ module.exports = ({ marp }) => {
   const parse = marp.markdown.parse.bind(marp.markdown);
   // the deck's front matter reaches the renderers through env.md2s (line-numbers …)
   marp.markdown.parse = (src, env = {}) => {
+    src = includes(src, process.env.MD2S_DECK_DIR || process.cwd());
     src = leadingRule(src);
     env.md2s = settings(src);
     return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
