@@ -239,6 +239,28 @@ check(JSON.stringify(tintedLines(inc.html, ' diff-del')) === '["- removed line"]
   'a ```diff fence tints its - and + lines, the markers kept, an unchanged line left plain');
 check(/include: no such file — include-absent\.md/.test(inc.html) && /md2s: include: no such file — include-absent\.md/.test(inc.err), 'a missing include leaves a red marker and a warning');
 check(inc.html.includes('never-expanded.md') && !inc.err.includes('never-expanded'), 'an ```include inside another fence stays text');
+// the contents slide: two columns while they hold the list, three when they do not, and as many contents
+// slides as three columns need after that, every entry still listed once and the entries after the last one
+const tocDir = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-toc-'));
+const tocDeck = (name, sections, subs) => {
+  const body = Array.from({ length: sections }, (_, a) => `# Section ${a + 1}\n\n${
+    Array.from({ length: subs }, (_, b) => `## Category\n### Slide ${a + 1}.${b + 1}\n\n- body\n`).join('\n')}`).join('\n');
+  fs.writeFileSync(path.join(tocDir, `${name}.md`), `---\nmarp: true\nheadingDivider: 2\ntoc: true\n---\n\n# Deck\n\nsubtitle\n\n${body}`);
+  const b = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(tocDir, `${name}.md`), '--html', '-o', out], { encoding: 'utf8' });
+  const f = path.join(out, `${name}.html`);
+  return { html: fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '', err: b.stderr };
+};
+// one-line entries, so the columns' width does not matter: five lines a section, four sections to a column
+const tocShort = tocDeck('toc-short', 6, 4), tocMid = tocDeck('toc-mid', 10, 4), tocLong = tocDeck('toc-long', 20, 4);
+check(/<div class="toc"><ul>/.test(tocShort.html) && !/class="toc toc-3"/.test(tocShort.html), 'a short contents list stays in two columns');
+check(/<div class="toc toc-3"><ul>/.test(tocMid.html) && !/Outline \(1\/2\)/.test(tocMid.html), 'a list too long for two columns is set in three, on one slide');
+const tocParts = (tocLong.html.match(/Outline \(\d+\/(\d+)\)/g) || []);
+const listed = (tocLong.html.match(/<div class="toc[^"]*"><ul>[\s\S]*?<\/ul><\/div>/g) || []).join('');
+check(tocParts.length === 2 && (listed.match(/>Section \d+</g) || []).length === 20 && (listed.match(/>Slide \d+\.\d+</g) || []).length === 80,
+  `a list too long for three columns goes on over ${tocParts.length} contents slides, each entry listed once`);
+check(!/Outline/.test(listed), 'the contents slides do not list themselves');
+fs.rmSync(tocDir, { recursive: true, force: true });
+
 // the include guard rails: a circle of two files and a chain deeper than 8 are a red marker and a warning,
 // the build going on; an ```include inside an HTML comment stays text, as one inside another fence does
 const guards = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-guard-'));

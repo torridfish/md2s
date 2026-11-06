@@ -1139,8 +1139,10 @@ function citations(src) {
   return `${lines.join('\n').replace(/\s*$/, '')}\n\n${slides.join('\n')}`;
 }
 
-/** front matter `toc: true` (or `toc: Title`): a contents slide after the first slide, filled in by tocs() */
-function insertToc(src) {
+/** front matter `toc: true` (or `toc: Title`): a contents slide after the first slide, filled in by tocs().
+    `pages` > 1 (a contents list too long for one slide in three columns, found by a first parse) puts that
+    many contents slides in a row, titled Outline (1/2), (2/2) …, each with its share of the entries. */
+function insertToc(src, pages = 1) {
   const toc = settings(src).toc;
   if (!toc || /^(false|no|off)$/i.test(String(toc))) return src;
   const title = toc === true || /^(true|yes|on)$/i.test(String(toc)) ? 'Outline' : String(toc);
@@ -1153,10 +1155,86 @@ function insertToc(src) {
     if (started && brk) at = i;
     else if (/^#{1,6}\s/.test(l) || (l.trim() && !/^\s*<!--.*-->\s*$/.test(l))) started = true;
   });
-  const slide = `## ${title}\n\n<div class="toc"></div>\n`;
+  const one = (k) => `## ${title}${pages > 1 ? ` (${k + 1}/${pages})` : ''}\n\n<div class="toc" data-page="${k + 1}" data-pages="${pages}"></div>\n`;
+  const slides = Array.from({ length: pages }, (_, k) => one(k));
+  const slide = slides.join(divided ? '\n' : '\n---\n\n');
   if (at < 0) return `${src.replace(/\s*$/, '')}\n\n${divided ? '' : '---\n\n'}${slide}`;
   lines.splice(at, 0, ...(divided ? [slide] : ['---', '', slide]));
   return lines.join('\n');
+}
+
+// ---------- contents slide: two columns, three when two do not fit, more slides when three do not ----------
+// The engine decides before any browser lays the slide out, so it estimates: each entry's lines, wrapped
+// word by word at its column's width with md2s Serif's advance widths (Liberation Serif, Times New Roman's
+// metrics; measured in Chrome, 1/1000 em, ASCII 32-126), against the body's height. The numbers mirror
+// themes/default.css (:root and the .toc rules); keep them in step. The layout check still measures the
+// result after the build.
+const SERIF_W = {
+  regular: [250, 333, 408, 500, 500, 833, 778, 180, 333, 333, 500, 564, 250, 333, 250, 278, 500, 467, 500, 500, 500, 500, 500, 500, 500, 500, 278, 278, 564, 564, 564, 444, 921, 722, 667, 667, 722, 611, 556, 722, 722, 333, 389, 722, 611, 889, 722, 722, 556, 722, 667, 556, 611, 722, 722, 944, 722, 722, 611, 333, 278, 333, 469, 500, 333, 444, 500, 444, 500, 444, 317, 500, 500, 278, 278, 500, 278, 778, 500, 500, 500, 500, 333, 389, 278, 500, 500, 722, 500, 500, 444, 480, 200, 480, 541],
+  bold: [250, 333, 555, 500, 500, 1000, 833, 278, 333, 333, 500, 570, 250, 333, 250, 278, 500, 450, 500, 500, 500, 500, 500, 500, 500, 500, 333, 333, 570, 570, 570, 500, 930, 722, 667, 722, 722, 667, 611, 778, 778, 389, 500, 778, 667, 944, 722, 778, 611, 778, 722, 556, 667, 722, 722, 1000, 722, 722, 667, 333, 278, 333, 581, 500, 333, 500, 556, 444, 556, 444, 333, 500, 556, 278, 333, 556, 278, 833, 556, 500, 556, 556, 444, 389, 333, 556, 500, 722, 500, 500, 444, 394, 220, 394, 520],
+};
+const TOC = {
+  size: 14.67,                 // --body-size (11pt)
+  line: 14.67 * 1.3,           // --leading
+  entryGap: 4,                 // .toc > ul > li padding-bottom
+  indent: 14.67 * 1.5,         // .toc ul ul: one --mark-w
+  width: 960 - 2 * 32 - 2 * 7.2,   // the body (--margin-x each side) less .toc's --inset-body padding
+  gap: 24,                     // .toc column-gap: --space-3
+  // --body-bottom less --body-top (a contents slide has no lead and no footnotes), and the gap under a
+  // column's last entry, which needs no room
+  height: 504 - 106 + 4,
+};
+/** An entry's text as it is painted, near enough to measure: inline math, Markdown marks and tags dropped. */
+const tocPlain = (text) => String(text)
+  .replace(/\$([^$]*)\$/g, (m, tex) => tex.replace(/\\[a-zA-Z]+\s*/g, '').replace(/[{}^_]/g, ''))
+  .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/<[^>]+>/g, '').replace(/[*`]|==/g, '');
+/** Width of a run of text in px: CJK and fullwidth forms are one em, other non-ASCII half an em and a bit. */
+function tocWidth(text, bold) {
+  const w = SERIF_W[bold ? 'bold' : 'regular'];
+  let units = 0;
+  for (const ch of text) {
+    const c = ch.codePointAt(0);
+    units += c >= 32 && c <= 126 ? w[c - 32] : /[⺀-鿿가-힯豈-﫿＀-￯]/.test(ch) ? 1000 : 556;
+  }
+  return (units * TOC.size) / 1000;
+}
+/** How many lines a text takes at a width, wrapped word by word (a word longer than the line breaks). */
+function tocLines(text, width, bold) {
+  const space = tocWidth(' ', bold);
+  let lines = 1, used = 0;
+  for (const word of tocPlain(text).trim().split(/\s+/).filter(Boolean)) {
+    const w = tocWidth(word, bold);
+    if (used && used + space + w > width) { lines += 1; used = 0; }
+    if (w > width) { lines += Math.ceil(w / width) - 1; used = w % width; } else used += (used ? space : 0) + w;
+  }
+  return lines;
+}
+/** An entry's height in a column of a width: its bold title, its subtitles one level in, the gap below. */
+const tocHeight = (g, width) => (tocLines(g.text, width, true) + g.subs.reduce((n, x) => n + tocLines(x.text, width - TOC.indent, false), 0)) * TOC.line + TOC.entryGap;
+/** How many columns the entries take, filled in order: the browser balances them, and it fits whenever this
+    does (an entry never breaks across columns unless it is taller than one). */
+function tocColumns(heights) {
+  let cols = heights.length ? 1 : 0, used = 0;
+  for (const h of heights) {
+    if (used && used + h > TOC.height) { cols += 1; used = 0; }
+    used += h;
+    while (used > TOC.height) { cols += 1; used -= TOC.height; }   // taller than a column: it breaks
+  }
+  return cols;
+}
+/** The layout of a contents list: two columns if they hold it, else three; past that, the entries are split
+    in order over as many three-column slides as they need. */
+function tocLayout(entries) {
+  const colW = (n) => (TOC.width - (n - 1) * TOC.gap) / n;
+  if (tocColumns(entries.map((g) => tocHeight(g, colW(2)))) <= 2) return { columns: 2, pages: [entries] };
+  const pages = [];
+  let page = [];
+  for (const g of entries) {
+    if (page.length && tocColumns([...page, g].map((x) => tocHeight(x, colW(3)))) > 3) { pages.push(page); page = []; }
+    page.push(g);
+  }
+  if (page.length) pages.push(page);
+  return { columns: 3, pages };
 }
 
 /** Fill the contents slide. Without section pages: every later slide's ## with its ### under it, a run of
@@ -1168,8 +1246,10 @@ function insertToc(src) {
 function tocs(md) {
   md.core.ruler.after('marpit_slide', 'rs_toc', (state) => {
     const toks = state.tokens;
-    const at = toks.findIndex((t) => t.type === 'html_block' && /<div class="toc"><\/div>/.test(t.content));
-    if (at < 0) return;
+    const TOC_DIV = /<div class="toc"[^>]*><\/div>/;
+    const ats = toks.map((t, i) => (t.type === 'html_block' && TOC_DIV.test(t.content) ? i : -1)).filter((i) => i >= 0);
+    if (!ats.length) return;
+    const at = ats[ats.length - 1];   // the last contents slide: the entries are the slides after it
     // one record per slide after the contents slide: its first #, ## and ###, and whether it is References
     const slides = [];
     let slide = 0, tocSlide = 0;
@@ -1219,7 +1299,14 @@ function tocs(md) {
     const li = (g) => `<li><a href="#${g.slide}">${g.html}</a>` +
       (g.subs.length ? `<ul>${g.subs.map((x) => `<li><a href="#${x.slide}">${x.html}</a></li>`).join('')}</ul>` : '') + '</li>';
     // a section with nothing after it (the thanks page) is not an entry
-    toks[at].content = `<div class="toc"><ul>${[...groups.filter((g) => !g.section || g.subs.length), ...tail].map(li).join('')}</ul></div>\n`;
+    const entries = [...groups.filter((g) => !g.section || g.subs.length), ...tail];
+    const { columns, pages } = tocLayout(entries);
+    // a first parse has one contents slide: tell parse() how many the list needs, and it parses again
+    if (pages.length > ats.length) state.env.md2sTocPages = pages.length;
+    ats.forEach((i, k) => {
+      const page = ats.length === 1 ? entries : pages[k] || [];
+      toks[i].content = `<div class="toc${columns === 3 ? ' toc-3' : ''}"><ul>${page.map(li).join('')}</ul></div>\n`;
+    });
   });
 }
 
@@ -1466,7 +1553,13 @@ module.exports = ({ marp }) => {
     src = includes(src, located.dir || process.env.MD2S_DECK_DIR || process.cwd(), located.chain);
     src = leadingRule(src);
     env.md2s = settings(src);
-    return parse(thanks(insertToc(repeatTitles(citations(src)))), env);
+    const deck = repeatTitles(citations(src));
+    // a contents list too long for one slide: parse once to count the slides it needs, then for real with
+    // that many (the trial runs on a copy of env, so footnotes and the like are not collected twice)
+    const trial = { ...env };
+    const tokens = parse(thanks(insertToc(deck)), trial);
+    if (!(trial.md2sTocPages > 1)) { Object.assign(env, trial); return tokens; }
+    return parse(thanks(insertToc(deck, trial.md2sTocPages)), env);
   };
   const script = (name) => `<script>${fs.readFileSync(path.join(__dirname, name), 'utf8').replace(/<\/script/gi, '<\\/script')}</script>`;
   // every format: a table wider than its box gets a smaller font until it fits (src/fit.js)

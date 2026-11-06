@@ -5,7 +5,7 @@ What changed in each version that a deck or an install would notice. Versions fo
 
 ## Unreleased
 
-Four additions; a deck that uses none of them renders as it did.
+Five additions; a deck that uses none of them renders as it did.
 
 ### Added
 
@@ -26,6 +26,10 @@ Four additions; a deck that uses none of them renders as it did.
 - `--strict`: the layout check's warnings fail the build (exit 1), and so does a check that could not run
   (no browser) or never finished (a check that crashed or was killed); without it, or with `--no-check`,
   nothing changes. A gate for CI.
+- The contents slide fits its list: two columns while they hold it, three when they do not, and when three
+  do not either, as many contents slides as the list needs (`Outline (1/2)`, `(2/2)` …), the entries in
+  order. The engine decides from each entry's wrapped lines before the build; a deck whose list fits two
+  columns renders as it did.
 
 ## 0.3.1 (2026-10-30)
 

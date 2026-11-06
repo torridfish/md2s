@@ -69,7 +69,10 @@ bibliography: |              # a few entries need no .bib file
     journal={Nature}, volume={521}, pages={436--444}, year={2015}}
 ```
 
-The contents slide lists the deck in two columns, each line linking to its slide. With section pages
+The contents slide lists the deck in two columns, each line linking to its slide. A list too long for two
+columns is set in three, and one too long for three goes on as many contents slides as it needs, titled
+`Outline (1/2)`, `(2/2)` …, the entries in order; the engine decides from the entries' wrapped lines, before
+the build, so no setting is needed. With section pages
 (`# Title` alone), each section is an entry with the `###` of its slides under it (the `##` categories would
 only repeat); without them, each `##` is an entry with its `###` under it, a run of slides under the same
 `##` being one entry. The `##` categories in `toc-standalone` (TODO, Appendix and References unless set
