@@ -119,8 +119,9 @@ results/tables.md
 An included file's front matter is stripped, not merged in (the deck's own settings stand), and its own
 ```` ```include ```` fences are followed, relative to it. A file that includes itself, directly or in a
 circle, or more than 8 levels of includes, stops there: a red marker on the slide and a warning, and the
-build goes on — the same for a path that names no file. A ```` ```include ```` inside another fence or an
-HTML comment stays text.
+build goes on — the same for a path that names no file. Only a fence in the Markdown counts: a
+```` ```include ```` inside another fence, in four-space indented code or in an HTML comment stays text. A
+deck written with CRLF line endings reads as one written with LF.
 
 ## Slide types
 
@@ -256,7 +257,7 @@ so people on the same network can open the deck while it runs.
 | ` ```latex {.render} ` | any LaTeX body rendered the same way |
 | ` ```python ` (any language) | monokai on a dark rounded box with line numbers (`{.no-lines}` drops them for one block, `{.lines}` keeps them when the deck turned them off); a box as wide as its code, centred, at 9pt (smaller only when the longest line would not fit); the numbers are a separate column, so selecting or copying code (in the PDF too) leaves them out |
 | ` ```python {path="human_eval/execution.py" start=98} ` | the same, with the path in white at the top of the box (a label only: nothing is read from it) and numbering from 98 |
-| ` ```python {hl=3-5,8} ` | the same, with lines 3 to 5 and 8 tinted (comma-separated `N` or `N-M`, 1-based; numbers past the end and anything else in the value are ignored) |
+| ` ```python {hl=3-5,8} ` | the same, with lines 3 to 5 and 8 tinted (comma-separated `N` or `N-M`, 1-based; numbers past the end and anything else in the value are ignored). Code fences only: a ```` ```prompt ````, ```` ```dot ````, ```` ```algo ```` or a ```` ```latex {.render} ```` fence is not code and ignores it |
 | ` ```diff ` | a patch: `+` lines tinted green, `-` lines red, the markers kept; `{hl=…}` works on it too |
 | ` ```prompt ` | prompt template as text: `System:` bold, `{placeholder}` bold red, `<\|im_start\|>` on mark-blue |
 | a table | results table, centred and compact (1px cell padding): bold header on gray, 9pt (smaller, down to 6px, when its words would not fit the box otherwise; a number or word is never split), hairline grid; cells centred unless the separator row says `:--` (left), `:-:` or `--:` (right) |
@@ -333,5 +334,6 @@ Moving the rule means moving `--body-top` and `--lead-bottom` with it, so the le
   painted over the header, a title or subtitle on a third line. Fix each one in the Markdown (split the
   slide with `---`, shorten, pick a `_layout`). The check cannot judge looks: still read the pages.
   `--strict` makes any of these warnings fail the build (exit 1), and so does a check that could not run
-  (no browser); `--no-check` skips the check either way.
+  (no browser) or one that never finished (an error, a check that was killed); `--no-check` skips the check
+  either way.
 - Local images need no flag: md2s runs Marp with local file access on; paths are relative to the deck.

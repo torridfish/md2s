@@ -701,13 +701,16 @@ function fences(md) {
     t.attrs = (t.attrs || []).filter(([k]) => !['path', 'start', 'scale', 'hl'].includes(k));
     const src = t.content.replace(/\n$/, '').split('\n');
     // {hl=3-5,8}: the lines to tint, comma-separated N or N-M, 1-based in the block; numbers past the end
-    // and anything else in the value are ignored
+    // and anything else in the value are ignored. Both ends are held to the block: an unsafe integer (a
+    // value so long it loses its last digit, or Infinity) is dropped rather than run over
     const hl = new Set();
     for (const part of String(hlRaw || '').split(',')) {
       const m = part.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
-      if (!m || +m[1] < 1) continue;
-      const end = m[2] === undefined ? +m[1] : Math.min(+m[2], src.length);
-      for (let k = +m[1]; k <= end; k++) hl.add(k);
+      if (!m) continue;
+      const from = Number(m[1]);
+      const to = m[2] === undefined ? from : Number(m[2]);
+      if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || from < 1) continue;
+      for (let k = from; k <= Math.min(to, src.length); k++) hl.add(k);
     }
     const digits = String(start + src.length - 1).length;
     const longest = Math.max(...src.map((l) => l.replace(/\t/g, '    ').length));
@@ -718,7 +721,7 @@ function fences(md) {
     const numbered = /\bno-lines\b/.test(cls) ? false : /(^|\s)lines\b/.test(cls) ? true : deck;
     const gutter = numbered ? `<span class="ln" aria-hidden="true">${src.map((_, k) => start + k).join('\n')}</span>` : '';
     // the tint classes go on the per-line spans inside <code>: the gutter column stays plain, and the
-    // spans carry no text of their own, so selecting or copying a line picks up nothing extra
+    // spans add no text of their own, so selecting or copying a line picks up nothing extra
     const tint = (k) => (hl.has(k + 1) ? ' hl' : '')
       + (lang === 'diff' ? (/^\+/.test(src[k]) ? ' diff-add' : /^-/.test(src[k]) ? ' diff-del' : '') : '');
     const html = fence(tokens, idx, options, env, self)
@@ -759,44 +762,151 @@ function marks(md) {
 // Expanded before anything else — the leading ---, citations, the rest of the source rewrites — so the
 // deck is its files put together. Each path is read relative to the directory of the file that includes
 // it (the deck's directory, MD2S_DECK_DIR, at the top), its front matter stripped, its own ```include
-// fences expanded in turn. A missing file, an include already being expanded (a cycle) or more than 8
-// levels of nesting is a red marker on the slide and a warning on stderr; the build goes on.
+// fences expanded in turn. A missing file, an include already being expanded (a cycle, the deck's own path
+// included) or more than 8 levels of nesting is a red marker on the slide and a warning on stderr; the
+// build goes on. Only a fence in the Markdown counts: one inside another fence, in indented code or in an
+// HTML comment is slide text. A CRLF deck is read as an LF one.
 const INCLUDE_DEPTH = 8;
 const alert = (msg) => `<span class="alert">${String(msg).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>`;
 
-/** An included file's front matter (settings of its own) is stripped, not merged into the deck's. */
+/** An included file's front matter (settings of its own) is stripped, not merged into the deck's, so the
+    deck's settings stand. What goes is what parses as YAML settings, or nothing at all: a ---…--- block of
+    ## headings, of plain prose (a scalar, not settings) or of YAML that does not parse is slides that a ---
+    opened, and stays. */
 function stripFrontMatter(src) {
-  const m = src.match(/^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
-  return m && Object.keys(frontMatter(src)).length ? src.slice(m[0].length) : src;
+  const m = src.match(/^---[ \t]*\n([\s\S]*?)\n---[ \t]*(?:\n|$)/);
+  if (!m) return src;
+  const body = m[1];
+  if (/^#{2,6}[ \t]/m.test(body)) return src;   // ## headings: a --- that opened slides
+  if (!body.trim()) return src.slice(m[0].length);   // --- / ---: empty settings
+  let v;
+  try { v = require('yaml').parse(body); } catch { return src; }   // not YAML at all: slides
+  const settings = v === null || (typeof v === 'object' && !Array.isArray(v));
+  return settings ? src.slice(m[0].length) : src;   // a scalar (plain prose) is not settings
+}
+
+/** How many leading lines of a deck are its front matter: the settings an ```include must not be read out of.
+    A --- that opens slides instead (leadingRule warns about it) is not front matter, and neither is a ---
+    with no second or no YAML between them. */
+function frontMatterLines(lines) {
+  if (!/^---[ \t]*$/.test(lines[0] || '')) return 0;
+  const end = lines.findIndex((l, k) => k > 0 && /^---[ \t]*$/.test(l));
+  if (end < 0) return 0;
+  const body = lines.slice(1, end).join('\n');
+  if (!body.trim()) return end + 1;
+  let v = null;
+  try { v = require('yaml').parse(body); } catch { return 0; }
+  const settingsLike = v && typeof v === 'object' && !Array.isArray(v) && !/^#{2,6}[ \t]/m.test(body);
+  return settingsLike ? end + 1 : 0;
+}
+
+/** The HTML comment state through a line, and the code span it is in: { open, run }, where run is the
+    backtick run of a span not yet closed. `<!--` and `-->` count in order, and only outside code — an inline
+    code span closes with a run as long as its own (it may wrap to the next line) and a four-space indented
+    block is a block — so an example cannot hide the ```include after it. Inside a comment the line is text,
+    and an indented `-->` still closes it. */
+function commentState(line, state) {
+  let { open, run } = state;
+  if (!line.trim()) return { open, run: 0 };   // a code span does not cross a blank line (a paragraph end)
+  if (!open && !run && /^(?: {4}| {0,3}\t)/.test(line)) return state;   // indented code: no comment markers
+  for (let i = 0; i < line.length;) {
+    if (!open && (run || line[i] === '`')) {
+      if (!run) {
+        // an escaped backtick (\`) is text, not the opening run of a code span
+        let slashes = 0;
+        while (i - slashes - 1 >= 0 && line[i - slashes - 1] === '\\') slashes += 1;
+        if (slashes % 2 === 1) { i += 1; continue; }
+        let n = 0;
+        while (line[i + n] === '`') n += 1;
+        run = n;
+        i += n;
+        continue;
+      }
+      // the closing run is the next run of exactly this length: a longer run is text, not a closer
+      let at = i;
+      let closed = false;
+      while (at < line.length) {
+        while (at < line.length && line[at] !== '`') at += 1;
+        if (at >= line.length) break;
+        let n = 0;
+        while (line[at + n] === '`') n += 1;
+        if (n === run) { closed = true; i = at + n; break; }
+        at += n;
+      }
+      if (!closed) return { open, run };
+      run = 0;
+      continue;
+    }
+    if (!open && line.startsWith('<!--', i)) { open = true; i += 4; continue; }
+    if (open && line.startsWith('-->', i)) { open = false; i += 3; continue; }
+    i += 1;
+  }
+  return { open, run };
+}
+
+/** Where this render's Markdown came from: the deck md2s knows (MD2S_DECK_FILE), or — since a server renders
+    the other files of the folder through the same process — the file under the deck's folder whose text this
+    is. Its folder is where its ```include paths resolve, and its realpath starts the chain, so a deck that
+    includes itself is a cycle where it is named. Identity is a path, never the text: two parts may read
+    alike. dir is null when nothing matched, and the caller keeps the deck folder it was given. */
+function locateDeck(src) {
+  const text = src.replace(/\r\n?/g, '\n').replace(/\s+$/, '');
+  const realIfSame = (file) => {
+    try {
+      const same = fs.readFileSync(file, 'utf8').replace(/\r\n?/g, '\n').replace(/\s+$/, '') === text;
+      return same ? fs.realpathSync(file) : null;
+    } catch { return null; }
+  };
+  const named = process.env.MD2S_DECK_FILE ? realIfSame(process.env.MD2S_DECK_FILE) : null;
+  if (named) return { dir: path.dirname(named), chain: new Set([named]) };
+  // the deck folder, its sub folders (a served deck may sit in one): a depth cap and no hidden folders or
+  // node_modules, so a big tree costs little
+  const walk = (dir, depth) => {
+    let entries = [];
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return null; }
+    entries.sort((a, b) => (a.name < b.name ? -1 : 1));
+    for (const e of entries) {
+      const file = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        if (depth < 4 && e.name !== 'node_modules' && !e.name.startsWith('.')) {
+          const found = walk(file, depth + 1);
+          if (found) return found;
+        }
+      } else if (/\.(md|markdown)$/i.test(e.name)) {
+        const real = realIfSame(file);
+        if (real) return real;
+      }
+    }
+    return null;
+  };
+  const real = walk(process.env.MD2S_DECK_DIR || process.cwd(), 0);
+  return real ? { dir: path.dirname(real), chain: new Set([real]) } : { dir: null, chain: new Set() };
 }
 
 /** A fence closes with the same characters, only those, at least as long as its opening run. */
-const fenceCloser = (marker) => new RegExp(`^\\s*${marker[0]}{${marker.length},}[ \\t]*$`);
+const fenceCloser = (marker) => new RegExp(`^ {0,3}${marker[0]}{${marker.length},}[ \\t]*$`);
 
-/** Expand src's ```include fences. Only fences count: one inside another fence (a ```markdown example) or
-    an HTML comment is slide text, and the deck's own front matter is skipped. chain holds the realpaths of
-    the files on the way in (an include already in it is a cycle); depth counts the include levels. */
+/** Expand src's ```include fences. Only a fence in the Markdown does — one inside another fence (a
+    ```markdown example), one in four-space indented code or one in an HTML comment is slide text — and the
+    deck's own front matter is skipped. chain holds the realpaths of the files on the way in (an include
+    already in it is a cycle); depth counts the include levels. */
 function includes(src, dir, chain = new Set(), depth = 0) {
-  const lines = src.split('\n');
+  // one line ending everywhere: a CRLF deck's fences, front matter and comments read like an LF deck's
+  const lines = src.replace(/\r\n?/g, '\n').split('\n');
   const out = [];
-  let i = 0, fence = null, comment = false;
-  if (/^---[ \t]*$/.test(lines[0] || '')) {
-    const end = lines.findIndex((l, k) => k > 0 && /^---[ \t]*$/.test(l));
-    if (end < 0) return src;
-    out.push(...lines.slice(0, end + 1));
-    i = end + 1;
-  }
+  let i = frontMatterLines(lines), fence = null, state = { open: false, run: 0 };
+  out.push(...lines.slice(0, i));
   for (; i < lines.length; i++) {
     const l = lines[i];
     if (fence) { if (fence.test(l)) fence = null; out.push(l); continue; }
-    if (comment) { if (l.includes('-->')) comment = false; out.push(l); continue; }
-    const f = l.match(/^\s*(`{3,}|~{3,})(.*)$/);
-    if (!f) {
-      if (/^\s*<!--/.test(l) && !l.includes('-->')) comment = true;
-      out.push(l);
-      continue;
-    }
+    const inComment = state.open;
+    state = commentState(l, state);
+    if (inComment) { out.push(l); continue; }
+    // a fence takes at most three spaces of indent: four is an indented code block, a ```include example
+    const f = l.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (!f) { out.push(l); continue; }
     fence = fenceCloser(f[1]);
+    state = { open: state.open, run: 0 };   // a code span does not run through a fence
     if (f[2].trim().toLowerCase() !== 'include') { out.push(l); continue; }
     let end = i + 1;
     while (end < lines.length && !fence.test(lines[end])) end++;
@@ -822,7 +932,7 @@ function includes(src, dir, chain = new Set(), depth = 0) {
         continue;
       }
       let text;
-      try { text = fs.readFileSync(real, 'utf8'); } catch (e) {
+      try { text = fs.readFileSync(real, 'utf8').replace(/\r\n?/g, '\n'); } catch (e) {
         warn(`include: ${file}: ${e.code || e.message}`);
         files.push(alert(`include: cannot read — ${file}`));
         continue;
@@ -1351,7 +1461,9 @@ module.exports = ({ marp }) => {
   const parse = marp.markdown.parse.bind(marp.markdown);
   // the deck's front matter reaches the renderers through env.md2s (line-numbers …)
   marp.markdown.parse = (src, env = {}) => {
-    src = includes(src, process.env.MD2S_DECK_DIR || process.cwd());
+    // a served deck in a sub folder includes beside itself, not beside the folder the server was started in
+    const located = locateDeck(src);
+    src = includes(src, located.dir || process.env.MD2S_DECK_DIR || process.cwd(), located.chain);
     src = leadingRule(src);
     env.md2s = settings(src);
     return parse(thanks(insertToc(repeatTitles(citations(src)))), env);

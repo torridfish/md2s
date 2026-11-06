@@ -11,18 +11,21 @@ Four additions; a deck that uses none of them renders as it did.
 
 - ```` ```include ```` fences: a deck written in several files. Each named file (one path per line,
   relative to the file that names it) is pulled in in place, its front matter stripped and its own includes
-  followed, relative to it. A missing file, a circle of includes or more than 8 levels deep leaves a red
-  marker on the slide and a warning; the build goes on. A ```` ```include ```` inside another fence or an
-  HTML comment stays text.
+  followed, relative to it. A missing file, a circle of includes (the deck's own path included) or more than
+  8 levels deep leaves a red marker on the slide and a warning; the build goes on. Only a fence in the
+  Markdown counts: a ```` ```include ```` inside another fence, in four-space indented code or in an HTML
+  comment stays text. A deck written with CRLF line endings reads as one written with LF.
 - `{hl=3-5,8}` on any code fence tints those lines (comma-separated `N` or `N-M`, 1-based; numbers past
   the end and anything else in the value are ignored); a ```` ```diff ```` fence tints its `+` lines green
   and `-` lines red, the markers kept. The line-number gutter column stays plain, and the tint sits on
-  spans that carry no text, so selecting or copying code picks up nothing extra.
+  spans that add no text, so selecting or copying code picks up nothing extra. The fences that are not code
+  (```` ```prompt ````, ```` ```dot ````, ```` ```algo ````, a ```` ```latex {.render} ````) do not take it.
 - `--handout [2|4]` (default 2): `<deck>-handout.pdf`, the built PDF's vector slides tiled on A4 portrait,
   two or four a page, each in a hairline frame, the PDF's Title and Author kept. It builds the PDF when it
   was not asked for (`--html --handout` writes all three) and cannot run with `--watch`.
 - `--strict`: the layout check's warnings fail the build (exit 1), and so does a check that could not run
-  (no browser); without it, or with `--no-check`, nothing changes. A gate for CI.
+  (no browser) or never finished (a check that crashed or was killed); without it, or with `--no-check`,
+  nothing changes. A gate for CI.
 
 ## 0.3.1 (2026-10-30)
 

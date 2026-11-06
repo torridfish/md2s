@@ -97,10 +97,18 @@ if (formats.some((f) => f !== 'html') && !tools.browser()) {
 
 const deckDir = path.dirname(path.resolve(src));
 // the engine sizes figures at 1:1 and resolves their paths against the deck; it appends the thanks page
-const env = { ...process.env, MD2S_DECK_DIR: deckDir, MD2S_THANKS: thanks };
+const env = { ...process.env, MD2S_DECK_DIR: deckDir, MD2S_DECK_FILE: path.resolve(src), MD2S_THANKS: thanks };
+// a run that failed, never started or was killed: spawnSync reports the last two as no status, and a stale
+// output file from an earlier build must not pass for a fresh one (a handout tiled from an older PDF)
+const failed = (r) => !!r.error || !!r.signal || r.status !== 0;
+const stop = (r, what) => {
+  if (r.error) process.stderr.write(`md2s: ${what} did not start: ${r.error.message}\n`);
+  if (r.signal) process.stderr.write(`md2s: ${what} was killed (${r.signal})\n`);
+  process.exit(r.status || 1);
+};
 const marp = (extra, format) => {
   const r = spawnSync(process.execPath, [MARP, '--no-stdin', '--config-file', CONFIG, ...extra], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: format } });
-  if (r.status) process.exit(r.status);
+  if (failed(r)) stop(r, 'the build');
 };
 
 if (serve) {
@@ -127,6 +135,7 @@ const stem = path.basename(src).replace(/\.[^.]+$/, '');
   // what Chrome cut off or drew over the margins, slide by slide (src/layout.js); --watch rebuilds without it
   if (layoutCheck && !watch) {
     const r = spawnSync(process.execPath, [path.join(ROOT, 'src', 'layout.js'), src, ...(strict ? ['--strict'] : [])], { stdio: 'inherit', env: { ...env, MD2S_FORMAT: formats[0] } });
-    if (strict && r.status) process.exit(r.status);   // CI gate: warnings, or a check that never ran, fail the build
+    // CI gate: warnings, a check that never ran, a check that was killed, all fail the build
+    if (strict && failed(r)) stop(r, 'the layout check');
   }
 })();

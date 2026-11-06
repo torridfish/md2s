@@ -19,6 +19,34 @@ const pdfText = (raw) => `${raw}\n${[...raw.matchAll(/stream\r?\n([\s\S]*?)endst
   try { return zlib.inflateSync(Buffer.from(m[1], 'latin1')).toString('latin1'); } catch { return ''; }
 }).join('\n')}`;
 const pageCount = (raw) => (pdfText(raw).match(/\/Type\s*\/Page\b(?!s)/g) || []).length;
+// What a handout sheet holds, read back with pdf-lib (a child process, as this test runs synchronously): the
+// sheet's size, and how many slides it places as form XObjects — a blank A4 of the same page count has none
+const handoutShape = (file) => {
+  const script = `
+    const fs = require('fs');
+    const crypto = require('crypto');
+    const { PDFDocument, PDFName } = require('pdf-lib');
+    PDFDocument.load(fs.readFileSync(process.argv[1])).then((doc) => console.log(JSON.stringify({
+      title: doc.getTitle() || '',
+      pages: doc.getPages().map((p) => {
+        const res = p.node.Resources();
+        const xo = res && res.lookup(PDFName.of('XObject'));
+        const keys = xo ? xo.keys() : [];
+        return {
+          size: [p.getWidth(), p.getHeight()].map((n) => +n.toFixed(2)),
+          slides: keys.length,
+          // what was drawn, not just how many: a sheet that drew the same slide twice would hash alike
+          hashes: keys.map((k) => crypto.createHash('sha1').update(Buffer.from(xo.lookup(k).contents)).digest('hex').slice(0, 12)),
+        };
+      }),
+    })));`;
+  const r = spawnSync(process.execPath, ['-e', script, file], { cwd: ROOT, encoding: 'utf8' });
+  try { return JSON.parse(r.stdout); } catch { return { title: '', pages: [], err: r.stderr.trim() }; }
+};
+// The text of the per-line spans carrying a tint class ('' for the plain ones): a tint has to sit on the lines
+// it names, not merely on the same number of lines somewhere
+const tintedLines = (html, cls) => [...html.matchAll(new RegExp(`<span class="line${cls}">[\\s\\S]*?(?=<span class="line|<\\/code>)`, 'g'))]
+  .map((m) => m[0].replace(/<[^>]+>/g, '').trim());
 
 function build(format) {
   const r = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), GALLERY, `--${format}`, '-o', out], { encoding: 'utf8' });
@@ -62,13 +90,21 @@ build('pdf');
 const pages = pageCount(fs.readFileSync(path.join(out, 'gallery.pdf'), 'latin1'));
 check(pages === slides, `PDF has one page per slide (${pages} pages, ${slides} slides)`);
 
-// --handout tiles that PDF onto A4 portrait, a sheet per two slides (4: four a page), the vectors kept
+// --handout tiles that PDF onto A4 portrait, a sheet per two slides (4: four a page), the vectors kept: every
+// sheet places its slides as form XObjects, and a blank A4 of the same page count would place none
 const hoRun = spawnSync(process.execPath, [path.join(ROOT, 'src', 'handout.js'), path.join(out, 'gallery.pdf'), path.join(out, 'gallery-handout.pdf'), '2'], { encoding: 'utf8' });
-const hoPdf = fs.existsSync(path.join(out, 'gallery-handout.pdf')) ? fs.readFileSync(path.join(out, 'gallery-handout.pdf'), 'latin1') : '';
-const hoPages = pageCount(hoPdf);
-const hoBox = pdfText(hoPdf).match(/\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/);
-check(hoRun.status === 0 && hoPages === Math.ceil(slides / 2), `--handout tiles two slides on each A4 sheet (${hoPages} sheets, ${slides} slides)`);
-check(hoBox && Math.abs(+hoBox[3] - 595.28) < 0.1 && Math.abs(+hoBox[4] - 841.89) < 0.1, `handout sheets are A4 portrait (${hoBox ? `${hoBox[3]} x ${hoBox[4]} pt` : 'no MediaBox found'})`);
+const hoShape = handoutShape(path.join(out, 'gallery-handout.pdf'));
+const hoPages = hoShape.pages || [];
+const hoDrawn = hoPages.reduce((n, p) => n + p.slides, 0);
+check(hoRun.status === 0 && hoPages.length === Math.ceil(slides / 2), `--handout tiles two slides on each A4 sheet (${hoPages.length} sheets, ${slides} slides)`);
+check(hoPages.length && hoPages.every((p) => p.size[0] === 595.28 && p.size[1] === 841.89),
+  `every handout sheet is A4 portrait (${[...new Set(hoPages.map((p) => p.size.join(' x ')))].join(', ')})`);
+check(hoDrawn === slides && hoPages.every((p) => p.slides > 0 && p.slides <= 2),
+  `each sheet draws its slides, each one once (${hoDrawn} slides on ${hoPages.length} sheets)`);
+const hoHashes = hoPages.flatMap((p) => p.hashes);
+check(hoHashes.length === slides && new Set(hoHashes).size === slides,
+  `the slide drawn in each cell is its own, not one slide tiled (${new Set(hoHashes).size} distinct of ${hoHashes.length})`);
+check(hoShape.title === 'A Gallery of md2s', `the handout keeps the deck's Title (${JSON.stringify(hoShape.title)})`);
 // through the CLI the same: --handout builds the deck's PDF (asked for or not) and its handout after it
 fs.writeFileSync(path.join(out, 'mini.md'), '---\nmarp: true\n---\n\n# Mini\n\n## A\n### One slide\n\nbody text\n');
 const miniRun = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(out, 'mini.md'), '--handout', '-o', out], { encoding: 'utf8' });
@@ -77,8 +113,11 @@ check(miniRun.status === 0 && fs.existsSync(path.join(out, 'mini.pdf')) && fs.ex
 // --handout 4 puts four slides on a sheet; and --handout is a flag, so it finds the deck when it comes first:
 // on --html it adds the PDF the handout needs, and writes all three
 const ho4 = spawnSync(process.execPath, [path.join(ROOT, 'src', 'handout.js'), path.join(out, 'gallery.pdf'), path.join(out, 'gallery-4up.pdf'), '4'], { encoding: 'utf8' });
-const ho4Pages = fs.existsSync(path.join(out, 'gallery-4up.pdf')) ? pageCount(fs.readFileSync(path.join(out, 'gallery-4up.pdf'), 'latin1')) : 0;
-check(ho4.status === 0 && ho4Pages === Math.ceil(slides / 4), `--handout 4 tiles four slides on each A4 sheet (${ho4Pages} sheets, ${slides} slides)`);
+const ho4Shape = handoutShape(path.join(out, 'gallery-4up.pdf'));
+const ho4Pages = ho4Shape.pages || [];
+const ho4Drawn = ho4Pages.reduce((n, p) => n + p.slides, 0);
+check(ho4.status === 0 && ho4Pages.length === Math.ceil(slides / 4), `--handout 4 tiles four slides on each A4 sheet (${ho4Pages.length} sheets, ${slides} slides)`);
+check(ho4Drawn === slides && ho4Pages.every((p) => p.slides > 0 && p.slides <= 4), `4-up draws the same slides, four to a sheet (${ho4Drawn} slides)`);
 fs.writeFileSync(path.join(out, 'mini4.md'), '---\nmarp: true\n---\n\n# Mini\n\n## A\n### One slide\n\nbody text\n');
 const mini4 = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), '--handout', '4', path.join(out, 'mini4.md'), '--html', '-o', out], { encoding: 'utf8' });
 check(mini4.status === 0 && ['.html', '.pdf', '-handout.pdf'].every((ext) => fs.existsSync(path.join(out, `mini4${ext}`))),
@@ -119,6 +158,14 @@ const uncheckedStrict = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2
 check(uncheckedStrict.status === 1 && /strict: the check did not run, so the deck is unchecked: failing the build/.test(uncheckedStrict.stderr),
   `--strict fails the build when the check could not run at all (exit ${uncheckedStrict.status})`);
 fs.rmSync(barePath, { recursive: true, force: true });
+// nor is a check that never finished a pass: a stand-in browser that takes the check down with it leaves
+// spawnSync with no status at all, which a strict build has to read as a failure
+const killer = path.join(out, 'chrome-kills-its-parent');
+fs.writeFileSync(killer, '#!/bin/sh\nkill -9 $PPID\nexit 1\n', { mode: 0o755 });
+const killed = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(out, 'mini.md'), '--html', '--strict', '-o', out],
+  { encoding: 'utf8', env: { ...process.env, CHROME_PATH: killer } });
+check(killed.status === 1 && /md2s: the layout check was killed \(SIGKILL\)/.test(killed.stderr),
+  `--strict fails the build when the layout check is killed (exit ${killed.status})`);
 
 // the deck structures a converted deck runs into (test/cases.md, test/no-divider.md)
 const deck = (name) => {
@@ -185,8 +232,11 @@ const incSlides = (inc.html.match(/<section\b/g) || []).length;
 check(incSlides === 8, `an included file's ### are the deck's slides (${incSlides} slides, 8 expected)`);
 check(inc.html.includes('included-from-the-part') && inc.html.includes('included-from-the-nested'), '```include pulls in its files, their own includes included');
 check(!inc.html.includes('paginate'), "an included file's front matter is stripped, not merged in");
-check((inc.html.match(/class="line hl"/g) || []).length === 3, '{hl=2,4-5} tints lines 2, 4 and 5 of a code block');
-check((inc.html.match(/class="line diff-(add|del)"/g) || []).length === 2, 'a ```diff fence tints its + and - lines');
+const hlLines = tintedLines(inc.html, ' hl');
+check(JSON.stringify(hlLines) === '["a = 1","c = 3","d = 4"]', `{hl=2,4-5} tints lines 2, 4 and 5, and those are the lines (${JSON.stringify(hlLines)})`);
+check(JSON.stringify(tintedLines(inc.html, ' diff-del')) === '["- removed line"]' && JSON.stringify(tintedLines(inc.html, ' diff-add')) === '["+ added line"]'
+  && tintedLines(inc.html, '').includes('kept line'),
+  'a ```diff fence tints its - and + lines, the markers kept, an unchanged line left plain');
 check(/include: no such file — include-absent\.md/.test(inc.html) && /md2s: include: no such file — include-absent\.md/.test(inc.err), 'a missing include leaves a red marker and a warning');
 check(inc.html.includes('never-expanded.md') && !inc.err.includes('never-expanded'), 'an ```include inside another fence stays text');
 // the include guard rails: a circle of two files and a chain deeper than 8 are a red marker and a warning,
@@ -207,7 +257,100 @@ check(/<span class="alert">include: too deep — f9\.md<\/span>/.test(guardHtml)
   && guardHtml.includes('chain-8') && !guardHtml.includes('chain-10'),
   'an ```include chain stops at 8 levels, the files up to there pulled in, the next one a marker and a warning');
 check(guardHtml.includes('comment-only.md') && !guardRun.stderr.includes('comment-only'), 'an ```include inside an HTML comment stays text, not a missing file');
+
+// the same guards, in the Markdown around them: a CRLF deck reads as an LF one, with the fence, the front
+// matter and the comment read the same way; a deck that includes itself is a cycle where it is named, not a
+// second copy of itself first; a leading --- that opens slides is not front matter, and its includes still
+// expand, while four-space indented code and a comment opened mid-line keep their ```include as text
+lay('crlf-part.md', '---\r\n# only a comment\r\n---\r\n### from-crlf-part\r\n');
+lay('crlf.md', '# CRLF\r\n\r\n```include\r\ncrlf-part.md\r\n```\r\n');
+lay('self.md', '# Self\r\n\r\nself-body\r\n\r\n```include\r\nself.md\r\n```\r\n');
+// a ring that comes back to the deck by way of a part: the deck's own text is what names it (there is no
+// deck path to go by once a server renders other files of the folder)
+lay('ring.md', '# Ring\n\nring-body\n\n```include\nring-part.md\n```\n');
+lay('ring-part.md', '### from-ring-part\n\n```include\nring.md\n```\n');
+lay('part-of-misc.md', '### from-part-of-misc\n');
+lay('part-of-misc-2.md', '### from-part-of-misc-2\n');
+lay('misc.md', '---\n\n### leading rule\n\n'
+  + 'The token is ``a`<!--b``.\n\n```include\npart-of-misc.md\n```\n\n'   // an inline code span, at two backticks
+  + '    ```include\n    indented-absent.md\n    ```\n\n'                  // indented code
+  + '\t<!--\n\n'                                                             // a tab-indented code line
+  + '<!--\n    -->\n\n```include\npart-of-misc-2.md\n```\n\n'               // a comment closed four spaces in
+  + '<div><!--\n\n```include\ncommented-absent.md\n```\n\n-->\n');           // a comment opened mid-line
+// a ---…--- block of plain prose in an included file is slides, not settings: it stays (and an inline code
+// span or an indented line holding `<!--` is code, not a comment that hides the includes after it)
+lay('prose.md', '---\nMUST-SURVIVE-SENTINEL\n---\n\n### after-prose\n');
+lay('scalar.md', '### before\n\n```include\nprose.md\n```\n');
+const inGuards = (name) => {
+  const b = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(guards, `${name}.md`), '--html', '-o', out], { encoding: 'utf8' });
+  return { html: fs.existsSync(path.join(out, `${name}.html`)) ? fs.readFileSync(path.join(out, `${name}.html`), 'utf8') : '', err: b.stderr, status: b.status };
+};
+const crlfDeck = inGuards('crlf');
+check(crlfDeck.status === 0 && crlfDeck.html.includes('from-crlf-part') && !/only a comment/.test(crlfDeck.html),
+  `a CRLF deck's own and included files are read like LF ones, and a comments-only front matter is stripped (exit ${crlfDeck.status})`);
+const selfDeck = inGuards('self');
+const selfCopies = (selfDeck.html.match(/self-body/g) || []).length;
+const selfTitles = (selfDeck.html.match(/<h1\b/g) || []).length;
+check(selfDeck.status === 0 && selfCopies === 1 && selfTitles === 1 && /md2s: include: cycle — self\.md/.test(selfDeck.err),
+  `a deck that includes itself is a cycle where it is named, not one copy of itself first (${selfTitles} title, ${selfCopies} body)`);
+const miscDeck = inGuards('misc');
+check(miscDeck.status === 0 && miscDeck.html.includes('from-part-of-misc') && miscDeck.html.includes('from-part-of-misc-2')
+  && !/md2s: include:/.test(miscDeck.err) && miscDeck.html.includes('indented-absent.md') && miscDeck.html.includes('commented-absent.md'),
+  'a leading --- that opens slides still gets its includes across an inline code span, indented code and a mid-line comment');
+// two files with the same text are still two files: a part that reads like the deck it sits under is no cycle
+fs.mkdirSync(path.join(guards, 'sub', 'sub'), { recursive: true });
+lay('twin.md', '### twin\n\ntwin-body\n\n```include\nsub/twin.md\n```\n');
+lay('sub/twin.md', '### twin\n\ntwin-body\n\n```include\nsub/twin.md\n```\n');
+lay('sub/sub/twin.md', '### twin-leaf\n\nleaf-body\n');
+const twinDeck = inGuards('twin');
+check(twinDeck.status === 0 && twinDeck.html.includes('leaf-body') && twinDeck.html.includes('twin-body') && !/include: cycle/.test(twinDeck.err),
+  `a part byte-identical to the deck is still a part, expanded by its own path (${twinDeck.err.trim().split('\n')[0] || 'no warnings'})`);
+const ringDeck = inGuards('ring');
+const ringBodies = (ringDeck.html.match(/ring-body/g) || []).length;
+check(ringDeck.status === 0 && ringDeck.html.includes('from-ring-part') && ringBodies === 1
+  && /md2s: include: cycle — ring\.md/.test(ringDeck.err),
+  `a part that includes the deck is a cycle at the deck, not a second copy of it (${ringBodies} body, one deck)`);
+// a backtick run closes only a run of the same length: ``a```b`` is one code span, so the comment after it is
+// still a comment and the include inside it stays text (four-space code and mid-line comments are covered above)
+lay('ticks.md', '### backticks\n\n``a```b``\n\n<!--\n\n```include\npart-of-misc.md\n```\n\n-->\n');
+const ticksDeck = inGuards('ticks');
+check(ticksDeck.status === 0 && !ticksDeck.html.includes('from-part-of-misc') && !/md2s: include:/.test(ticksDeck.err),
+  'a ```include inside a comment stays text after a code span whose run is longer than its opener');
+lay('escaped.md', '### escaped\n\nA \\`x\n\n<!--\n\n```include\npart-of-misc.md\n```\n\n-->\n');
+const escapedDeck = inGuards('escaped');
+check(escapedDeck.status === 0 && !escapedDeck.html.includes('from-part-of-misc'),
+  'an escaped backtick opens no code span, so the comment after it still hides its ```include');
+const scalarDeck = inGuards('scalar');
+check(scalarDeck.status === 0 && scalarDeck.html.includes('MUST-SURVIVE-SENTINEL') && scalarDeck.html.includes('after-prose'),
+  `an included file's ---…--- block of plain prose is kept: only YAML settings (or an empty block) is front matter (${scalarDeck.status})`);
 fs.rmSync(guards, { recursive: true, force: true });
+
+// a served deck that sits in a sub folder includes beside itself, not beside the folder the server started
+// in: the deck folder holds a part.md of its own, and the sub deck's own part.md is the one that must load
+// (the engine is driven directly here, as a server does, with no MD2S_DECK_FILE to name the file)
+const srv = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-serve-'));
+fs.mkdirSync(path.join(srv, 'sub'), { recursive: true });
+fs.writeFileSync(path.join(srv, 'main.md'), '# Main\n');
+fs.writeFileSync(path.join(srv, 'part.md'), '### WRONG-root-part\n');
+fs.writeFileSync(path.join(srv, 'sub', 'part.md'), '### RIGHT-sub-part\n');
+fs.writeFileSync(path.join(srv, 'sub', 'other.md'), '### Sub deck\n\n```include\npart.md\n```\n');
+const savedDir = process.env.MD2S_DECK_DIR, savedFile = process.env.MD2S_DECK_FILE;
+let served = '';
+try {
+  process.env.MD2S_DECK_DIR = srv;
+  delete process.env.MD2S_DECK_FILE;
+  const cliDir = path.dirname(require.resolve('@marp-team/marp-cli/package.json'));
+  const { Marp } = require(require.resolve('@marp-team/marp-core', { paths: [cliDir] }));
+  const config = require(path.join(ROOT, 'src', 'config.js'));
+  const marp = config.engine({ marp: new Marp({ html: config.html, ...config.options }) });
+  served = marp.render(fs.readFileSync(path.join(srv, 'sub', 'other.md'), 'utf8')).html;
+} finally {
+  if (savedDir === undefined) delete process.env.MD2S_DECK_DIR; else process.env.MD2S_DECK_DIR = savedDir;
+  if (savedFile === undefined) delete process.env.MD2S_DECK_FILE; else process.env.MD2S_DECK_FILE = savedFile;
+  fs.rmSync(srv, { recursive: true, force: true });
+}
+check(served.includes('RIGHT-sub-part') && !served.includes('WRONG-root-part'),
+  `a served deck in a sub folder includes its own file beside it (${served.includes('RIGHT-sub-part') ? 'its part' : 'no part'})`);
 
 // {hl=…} ignores what it cannot read — a number past the end, 0, a word — and never reaches the slide as an
 // attribute; test/include.md covers the lines it does tint
@@ -218,6 +361,13 @@ const tinted = (tintHtml.match(/<span class="line hl">[\s\S]*?(?=<span class="li
 check(tintRun.status === 0 && (tintHtml.match(/class="line hl"/g) || []).length === 1 && /b = 2/.test(tinted),
   `{hl=2,99,three,0} tints line 2 only (${JSON.stringify(tinted.trim() || tintRun.stderr.trim().split('\n')[0] || 'no tinted line')})`);
 check(!/hl=/.test(tintHtml), "a fence's {hl=…} does not reach the slide as an attribute");
+// {hl=…} holds both ends to the block: a value too long for a safe integer is dropped, where k++ stops moving
+// and the build would hang on the slide that names it
+fs.writeFileSync(path.join(out, 'huge.md'), '# Huge\n\n### hl\n\n```js {hl=9007199254740992}\nlet a = 1;\n```\n\n```js {hl=1-99}\nlet b = 1;\n```\n');
+const huge = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(out, 'huge.md'), '--html', '-o', out], { encoding: 'utf8', timeout: 120000 });
+const hugeHtml = fs.existsSync(path.join(out, 'huge.html')) ? fs.readFileSync(path.join(out, 'huge.html'), 'utf8') : '';
+check(huge.status === 0 && (hugeHtml.match(/class="line hl"/g) || []).length === 1,
+  `{hl=9007199254740992} is ignored and {hl=1-99} tints the one line there is, without hanging (exit ${huge.status}${huge.signal ? `, ${huge.signal}` : ''})`);
 
 // md2s setup on a machine without tar / xz: TinyTeX is not downloaded, the message says why, nothing is left
 // (a PATH holding only sh, and a cache of its own, so nothing real is touched)

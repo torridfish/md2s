@@ -98,6 +98,7 @@ function measure(slack) {
     return;
   }
   process.env.MD2S_QUIET = '1';   // the engine's own warnings came with the build
+  process.env.MD2S_DECK_FILE ??= deck;   // an ```include of the deck itself is a cycle, not a second copy
   const config = require('./config.js');
   // Marp's own marp-core and puppeteer-core, found from marp-cli wherever npm put them
   const cli = path.dirname(require.resolve('@marp-team/marp-cli/package.json'));
