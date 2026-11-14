@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # the tools npm test drives: Chrome and ffmpeg come with the runner, TeX and poppler do not
+      - name: Install TeX, poppler and the CJK font
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base texlive-latex-extra texlive-science texlive-fonts-recommended \
+            poppler-utils fonts-noto-cjk
+      - run: npm ci
+      - run: npm test

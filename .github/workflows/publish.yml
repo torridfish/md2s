@@ -1,0 +1,42 @@
+name: Publish
+
+# npm's Trusted Publishing: the workflow gets an OIDC token from GitHub, and npm accepts it for this
+# package because the publisher below names this repository, this workflow file and this environment.
+# No npm token and no one-time password are stored anywhere.
+#
+# npmjs.com → the package → Settings → Trusted Publisher → GitHub Actions:
+#   Organization or user: torridfish
+#   Repository:          md2s
+#   Workflow filename:   publish.yml
+#   Environment name:    release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # the OIDC token npm verifies
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      # the version in package.json is the version that goes out; fail early if it is already published
+      - name: Check the version is new
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          if npm view "$name@$version" version > /dev/null 2>&1; then
+            echo "$name@$version is already on npm" >&2
+            exit 1
+          fi
+      - run: npm publish --provenance --access public
