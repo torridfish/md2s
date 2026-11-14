@@ -3,9 +3,9 @@
 What changed in each version that a deck or an install would notice. Versions follow
 [semantic versioning](https://semver.org); before 1.0 a minor version may change how a deck renders.
 
-## Unreleased
+## 0.4.0 (2026-11-14)
 
-Five additions; a deck that uses none of them renders as it did.
+Five additions and one change; a deck that uses none of them renders as it did.
 
 ### Added
 
@@ -30,6 +30,12 @@ Five additions; a deck that uses none of them renders as it did.
   do not either, as many contents slides as the list needs (`Outline (1/2)`, `(2/2)` …), the entries in
   order. The engine decides from each entry's wrapped lines before the build; a deck whose list fits two
   columns renders as it did.
+
+### Changed
+
+- `--serve` reloads the presented page when the deck is saved, and the reload stays on the slide being shown:
+  Marp keeps the current slide in the URL hash. Before, an edit showed up only after a manual reload. A file
+  the deck includes is not watched; save the deck again to show that edit.
 
 ## 0.3.1 (2026-10-30)
 
