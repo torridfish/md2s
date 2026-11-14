@@ -28,6 +28,12 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
           cache: npm
+      # npm's Trusted Publishing needs npm 11.5.1 or newer; Node 22 ships npm 10, which signs provenance
+      # but never exchanges the OIDC token, and the registry then answers 404
+      - name: npm 11 for trusted publishing
+        run: |
+          npm install -g npm@^11.6
+          npm --version
       - run: npm ci
       # the version in package.json is the version that goes out; fail early if it is already published
       - name: Check the version is new
