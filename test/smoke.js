@@ -242,14 +242,15 @@ check(inc.html.includes('never-expanded.md') && !inc.err.includes('never-expande
 // the contents slide: two columns while they hold the list, three when they do not, and as many contents
 // slides as three columns need after that, every entry still listed once and the entries after the last one
 const tocDir = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-toc-'));
-const tocDeck = (name, sections, subs) => {
-  const body = Array.from({ length: sections }, (_, a) => `# Section ${a + 1}\n\n${
-    Array.from({ length: subs }, (_, b) => `## Category\n### Slide ${a + 1}.${b + 1}\n\n- body\n`).join('\n')}`).join('\n');
+const tocWrite = (name, body) => {
   fs.writeFileSync(path.join(tocDir, `${name}.md`), `---\nmarp: true\nheadingDivider: 2\ntoc: true\n---\n\n# Deck\n\nsubtitle\n\n${body}`);
   const b = spawnSync(process.execPath, [path.join(ROOT, 'bin', 'md2s.js'), path.join(tocDir, `${name}.md`), '--html', '-o', out], { encoding: 'utf8' });
   const f = path.join(out, `${name}.html`);
   return { html: fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '', err: b.stderr };
 };
+const tocBody = (sections) => sections.map((s, a) => `# ${s.title}\n\n${
+  s.subs ? Array.from({ length: s.subs }, (_, b) => `## Category\n### Slide ${a + 1}.${b + 1}\n\n- body\n`).join('\n') : ''}`).join('\n');
+const tocDeck = (name, sections, subs) => tocWrite(name, tocBody(Array.from({ length: sections }, (_, a) => ({ title: `Section ${a + 1}`, subs }))));
 // one-line entries, so the columns' width does not matter: five lines a section, four sections to a column
 const tocShort = tocDeck('toc-short', 6, 4), tocMid = tocDeck('toc-mid', 10, 4), tocLong = tocDeck('toc-long', 20, 4);
 check(/<div class="toc"><ul>/.test(tocShort.html) && !/class="toc toc-3"/.test(tocShort.html), 'a short contents list stays in two columns');
@@ -259,6 +260,26 @@ const listed = (tocLong.html.match(/<div class="toc[^"]*"><ul>[\s\S]*?<\/ul><\/d
 check(tocParts.length === 2 && (listed.match(/>Section \d+</g) || []).length === 20 && (listed.match(/>Slide \d+\.\d+</g) || []).length === 80,
   `a list too long for three columns goes on over ${tocParts.length} contents slides, each entry listed once`);
 check(!/Outline/.test(listed), 'the contents slides do not list themselves');
+// every contents slide holds its own share, in order: one page listing everything with the next one empty
+// passes every count above, and failed silently before
+const tocPages = [...tocLong.html.matchAll(/<div class="toc[^"]*"><ul>([\s\S]*?)<\/ul><\/div>/g)].map((m) => m[1]);
+const pageSections = tocPages.map((p) => [...p.matchAll(/>Section (\d+)</g)].map((m) => +m[1]));
+check(tocPages.length === 2 && pageSections.every((n) => n.length > 0)
+  && pageSections[0][0] === 1 && pageSections[1][0] === pageSections[0][pageSections[0].length - 1] + 1,
+  `each contents slide lists its own share, in order (${pageSections.map((n) => `${n[0]}…${n[n.length - 1]}`).join(', ')})`);
+// these builds run the layout check too: a contents list that runs off the slide would show it here, once
+check(!/below the body|past the (?:left|right) margin/.test(tocShort.err + tocMid.err + tocLong.err),
+  'no contents list runs past the body or the margins');
+// an em dash is 0.98 em in the serif, not the half em a fallback counts: 18 long titles with four of them
+// need three columns, and the half-em estimate set them in two and cut 147px off the slide
+const wideTitle = (n) => `Section ${n} — results — evaluation of the approach — with the training data and robust scaling on language reasoning results of evaluation`;
+const tocWide = tocWrite('toc-wide', Array.from({ length: 18 }, (_, a) => `## ${wideTitle(a + 1)}\n\n- body\n`).join('\n'));
+check(/class="toc toc-3"/.test(tocWide.html) && !/below the body/.test(tocWide.err),
+  'wide punctuation is measured as wide, so a list of long em-dash titles is not cut');
+// an entry taller than a column: the theme lets it break across the columns, as the estimate assumes
+const tocTall = tocWrite('toc-tall', tocBody([{ title: 'One section with many slides', subs: 26 }]));
+check(/class="toc[^"]*toc-split"/.test(tocTall.html) && !/below the body/.test(tocTall.err),
+  'an entry taller than a column breaks across the columns instead of running off the slide');
 fs.rmSync(tocDir, { recursive: true, force: true });
 
 // the include guard rails: a circle of two files and a chain deeper than 8 are a red marker and a warning,

@@ -362,6 +362,9 @@ pre.prompt .path { color: var(--code-green); }
    its estimate mirrors the sizes here and in :root, keep them in step) ---------- */
 .body > .toc { columns: 2; column-gap: var(--space-3); padding: 0 var(--inset-body); }
 .body > .toc.toc-3 { columns: 3; }
+/* an entry taller than a column breaks across the columns rather than running off the slide (the engine says
+   so with .toc-split, and its estimate assumes that break) */
+.body > .toc.toc-split > ul > li { break-inside: auto; }
 .toc ul { margin: 0; padding-left: 0; }
 .toc > ul > li { break-inside: avoid; padding-bottom: 4px; }   /* below, not above: a column's top stays level */
 .toc > ul > li::before { content: none; }

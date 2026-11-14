@@ -1076,8 +1076,15 @@ function cslStyle(name) {
   if (!cfg.styles.has(name)) throw new Error(`unknown citation-style ${name}: use apa, ieee, vancouver, harvard1 or a .csl file`);
   return name;
 }
-// MD2S_QUIET: the layout check renders the deck a second time, and the build has said all this already
-const warn = (msg) => { if (!process.env.MD2S_QUIET) process.stderr.write(`md2s: ${msg}\n`); };
+// MD2S_QUIET: the layout check renders the deck a second time, and the build has said all this already.
+// buffered: a first parse that only counts the contents slides is thrown away when a second one runs, so its
+// warnings wait here and are dropped then; every warning the build keeps is printed once.
+let buffered = null;
+const warn = (msg) => {
+  if (process.env.MD2S_QUIET) return;
+  if (buffered) buffered.push(msg);
+  else process.stderr.write(`md2s: ${msg}\n`);
+};
 function citations(src) {
   const meta = settings(src);
   if (!meta.bibliography) return src;
@@ -1170,8 +1177,8 @@ function insertToc(src, pages = 1) {
 // themes/default.css (:root and the .toc rules); keep them in step. The layout check still measures the
 // result after the build.
 const SERIF_W = {
-  regular: [250, 333, 408, 500, 500, 833, 778, 180, 333, 333, 500, 564, 250, 333, 250, 278, 500, 467, 500, 500, 500, 500, 500, 500, 500, 500, 278, 278, 564, 564, 564, 444, 921, 722, 667, 667, 722, 611, 556, 722, 722, 333, 389, 722, 611, 889, 722, 722, 556, 722, 667, 556, 611, 722, 722, 944, 722, 722, 611, 333, 278, 333, 469, 500, 333, 444, 500, 444, 500, 444, 317, 500, 500, 278, 278, 500, 278, 778, 500, 500, 500, 500, 333, 389, 278, 500, 500, 722, 500, 500, 444, 480, 200, 480, 541],
-  bold: [250, 333, 555, 500, 500, 1000, 833, 278, 333, 333, 500, 570, 250, 333, 250, 278, 500, 450, 500, 500, 500, 500, 500, 500, 500, 500, 333, 333, 570, 570, 570, 500, 930, 722, 667, 722, 722, 667, 611, 778, 778, 389, 500, 778, 667, 944, 722, 778, 611, 778, 722, 556, 667, 722, 722, 1000, 722, 722, 667, 333, 278, 333, 581, 500, 333, 500, 556, 444, 556, 444, 333, 500, 556, 278, 333, 556, 278, 833, 556, 500, 556, 556, 444, 389, 333, 556, 500, 722, 500, 500, 444, 394, 220, 394, 520],
+  regular: [250, 333, 408, 500, 500, 833, 778, 180, 333, 333, 500, 564, 250, 333, 250, 278, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 278, 278, 564, 564, 564, 444, 921, 722, 667, 667, 722, 611, 556, 722, 722, 333, 389, 722, 611, 889, 722, 722, 556, 722, 667, 556, 611, 722, 722, 944, 722, 722, 611, 333, 278, 333, 469, 500, 333, 444, 500, 444, 500, 444, 317, 500, 500, 278, 278, 500, 278, 778, 500, 500, 500, 500, 333, 389, 278, 500, 500, 722, 500, 500, 444, 480, 200, 480, 541],
+  bold: [250, 333, 555, 500, 500, 1000, 833, 278, 333, 333, 500, 570, 250, 333, 250, 278, 500, 500, 500, 500, 500, 500, 500, 500, 500, 500, 333, 333, 570, 570, 570, 500, 930, 722, 667, 722, 722, 667, 611, 778, 778, 389, 500, 778, 667, 944, 722, 778, 611, 778, 722, 556, 667, 722, 722, 1000, 722, 722, 667, 333, 278, 333, 581, 500, 333, 500, 556, 444, 556, 444, 333, 500, 556, 278, 333, 556, 278, 833, 556, 500, 556, 556, 444, 389, 333, 556, 500, 722, 500, 500, 444, 394, 220, 394, 520],
 };
 const TOC = {
   size: 14.67,                 // --body-size (11pt)
@@ -1188,13 +1195,22 @@ const TOC = {
 const tocPlain = (text) => String(text)
   .replace(/\$([^$]*)\$/g, (m, tex) => tex.replace(/\\[a-zA-Z]+\s*/g, '').replace(/[{}^_]/g, ''))
   .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/<[^>]+>/g, '').replace(/[*`]|==/g, '');
-/** Width of a run of text in px: CJK and fullwidth forms are one em, other non-ASCII half an em and a bit. */
+/** Glyphs the serif sets at nearly an em, measured in Chrome (1/1000 em): an em dash, an ellipsis and an
+    arrow are 982, not the 556 a half-em fallback would give, which would hide a wrapped line. */
+const WIDE_GLYPHS = { '—': 982, '…': 982, '→': 982, '←': 982, '⇒': 982, 'Ω': 731 };
+/** Width of a run of text in px: CJK and fullwidth forms are one em; punctuation, arrows and maths the serif
+    sets wide count as wide (counting them at half an em lets a column run past the body); other non-ASCII,
+    accents included, is half an em and a bit. */
 function tocWidth(text, bold) {
   const w = SERIF_W[bold ? 'bold' : 'regular'];
   let units = 0;
   for (const ch of text) {
     const c = ch.codePointAt(0);
-    units += c >= 32 && c <= 126 ? w[c - 32] : /[⺀-鿿가-힯豈-﫿＀-￯]/.test(ch) ? 1000 : 556;
+    if (c >= 32 && c <= 126) { units += w[c - 32]; continue; }
+    if (WIDE_GLYPHS[ch]) { units += WIDE_GLYPHS[ch]; continue; }
+    // general punctuation, letterlike symbols, arrows and maths: 0.73 to 0.98 em, wide either way
+    if (/[\u2000-\u206F\u2100-\u214F\u2190-\u21FF\u2200-\u22FF\u25A0-\u25FF]/.test(ch)) { units += 982; continue; }
+    units += /[⺀-鿿가-힯豈-﫿＀-￯]/.test(ch) ? 1000 : 556;
   }
   return (units * TOC.size) / 1000;
 }
@@ -1212,7 +1228,7 @@ function tocLines(text, width, bold) {
 /** An entry's height in a column of a width: its bold title, its subtitles one level in, the gap below. */
 const tocHeight = (g, width) => (tocLines(g.text, width, true) + g.subs.reduce((n, x) => n + tocLines(x.text, width - TOC.indent, false), 0)) * TOC.line + TOC.entryGap;
 /** How many columns the entries take, filled in order: the browser balances them, and it fits whenever this
-    does (an entry never breaks across columns unless it is taller than one). */
+    does (an entry breaks across columns only when it is taller than one, and the theme then says so). */
 function tocColumns(heights) {
   let cols = heights.length ? 1 : 0, used = 0;
   for (const h of heights) {
@@ -1223,10 +1239,13 @@ function tocColumns(heights) {
   return cols;
 }
 /** The layout of a contents list: two columns if they hold it, else three; past that, the entries are split
-    in order over as many three-column slides as they need. */
+    in order over as many three-column slides as they need. split says an entry is taller than a column: the
+    theme lets such an entry break across the columns (`toc-split`), which is what this estimate assumes. */
 function tocLayout(entries) {
   const colW = (n) => (TOC.width - (n - 1) * TOC.gap) / n;
-  if (tocColumns(entries.map((g) => tocHeight(g, colW(2)))) <= 2) return { columns: 2, pages: [entries] };
+  const heights = (n) => entries.map((g) => tocHeight(g, colW(n)));
+  const taller = (n) => heights(n).some((h) => h > TOC.height);
+  if (tocColumns(heights(2)) <= 2) return { columns: 2, pages: [entries], split: taller(2) };
   const pages = [];
   let page = [];
   for (const g of entries) {
@@ -1234,7 +1253,7 @@ function tocLayout(entries) {
     page.push(g);
   }
   if (page.length) pages.push(page);
-  return { columns: 3, pages };
+  return { columns: 3, pages, split: taller(3) };
 }
 
 /** Fill the contents slide. Without section pages: every later slide's ## with its ### under it, a run of
@@ -1300,12 +1319,12 @@ function tocs(md) {
       (g.subs.length ? `<ul>${g.subs.map((x) => `<li><a href="#${x.slide}">${x.html}</a></li>`).join('')}</ul>` : '') + '</li>';
     // a section with nothing after it (the thanks page) is not an entry
     const entries = [...groups.filter((g) => !g.section || g.subs.length), ...tail];
-    const { columns, pages } = tocLayout(entries);
+    const { columns, pages, split } = tocLayout(entries);
     // a first parse has one contents slide: tell parse() how many the list needs, and it parses again
     if (pages.length > ats.length) state.env.md2sTocPages = pages.length;
     ats.forEach((i, k) => {
       const page = ats.length === 1 ? entries : pages[k] || [];
-      toks[i].content = `<div class="toc${columns === 3 ? ' toc-3' : ''}"><ul>${page.map(li).join('')}</ul></div>\n`;
+      toks[i].content = `<div class="toc${columns === 3 ? ' toc-3' : ''}${split ? ' toc-split' : ''}"><ul>${page.map(li).join('')}</ul></div>\n`;
     });
   });
 }
@@ -1557,8 +1576,18 @@ module.exports = ({ marp }) => {
     // a contents list too long for one slide: parse once to count the slides it needs, then for real with
     // that many (the trial runs on a copy of env, so footnotes and the like are not collected twice)
     const trial = { ...env };
-    const tokens = parse(thanks(insertToc(deck)), trial);
-    if (!(trial.md2sTocPages > 1)) { Object.assign(env, trial); return tokens; }
+    const outer = buffered;
+    const held = [];
+    buffered = held;
+    let tokens;
+    try { tokens = parse(thanks(insertToc(deck)), trial); } finally { buffered = outer; }
+    if (!(trial.md2sTocPages > 1)) {
+      // this parse is the build's, so its warnings are the build's too
+      if (outer) outer.push(...held);
+      else for (const msg of held) process.stderr.write(`md2s: ${msg}\n`);
+      Object.assign(env, trial);
+      return tokens;
+    }
     return parse(thanks(insertToc(deck, trial.md2sTocPages)), env);
   };
   const script = (name) => `<script>${fs.readFileSync(path.join(__dirname, name), 'utf8').replace(/<\/script/gi, '<\\/script')}</script>`;
