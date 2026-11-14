@@ -18,7 +18,8 @@ const HELP = `md2s: plain Markdown to consistent, readable academic slides (PDF,
   md2s deck.md --pdf --pptx          + deck.pptx, one picture per slide (2880x1620)
   md2s deck.md --html                one HTML file to present from: arrows / click to turn, l laser,
                                      d pen, u undo, e erase, ? keys (Marp's f, o, p as usual)
-  md2s deck.md --serve [--port N]    present at http://localhost:8080/deck.md, rendered again on reload
+  md2s deck.md --serve [--port N]    present at http://localhost:8080/deck.md; saving the deck reloads the page,
+                                     which stays on the slide you were on (Marp's URL hash)
   md2s deck.md --pdf --watch         rebuild on every save
   md2s deck.md --png                 one PNG per slide
   md2s deck.md --pptx --scale 4      PPTX / PNG pictures at 4x the 960x540 canvas (default 3)
@@ -112,10 +113,11 @@ const marp = (extra, format) => {
 };
 
 if (serve) {
-  // Marp's server renders the deck's folder on request, as HTML with the presenting tools
-  console.log(`presenting at http://localhost:${port}/${path.basename(src)} (Ctrl-C to stop)`);
+  // Marp's server renders the deck's folder on request, as HTML with the presenting tools; --watch reloads the
+  // open page when a file is saved, and the slide stays (Marp keeps it in the URL hash)
+  console.log(`presenting at http://localhost:${port}/${path.basename(src)} (Ctrl-C to stop; saving the deck reloads it)`);
   env.PORT = port;
-  marp(['--server', '--input-dir', deckDir], 'html');
+  marp(['--server', '--watch', '--input-dir', deckDir], 'html');
   process.exit(0);
 }
 const out = outdir || path.dirname(src);

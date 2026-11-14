@@ -10,7 +10,7 @@ md2s deck.md                       # deck.pdf next to deck.md (vector)
 md2s deck.md --pdf --pptx          # + deck.pptx, one 2880x1620 picture per slide
 md2s deck.md --pptx --scale 4      # pictures at 4x the canvas (3840x2160); default 3, PDF is vector
 md2s deck.md --html                # one HTML file to present from (keys below), pictures and fonts inside: send it alone
-md2s deck.md --serve               # present at http://localhost:8080/deck.md (--port N), re-rendered on reload
+md2s deck.md --serve               # present at http://localhost:8080/deck.md (--port N); saving reloads it
 md2s deck.md --pdf --watch         # rebuild on every save
 md2s deck.md --pptx -o out/        # another output folder
 md2s deck.md --no-check            # skip the layout check that warns about overflow (see Notes)
@@ -229,10 +229,11 @@ Diagrams and frames are cached in `~/.cache/md2s/`.
 ## Presenting from HTML
 
 `md2s deck.md --html` writes one HTML file; open it in a browser. `md2s deck.md --serve` presents
-the same from Marp's server instead (the deck's folder at `http://localhost:8080/`, rendered again on every
-reload, so edits show up at once). Open from a file, Marp's overview cannot close again (its frame cannot
-talk to the page under `file://`); over `--serve` it can. The server listens on every network interface,
-so people on the same network can open the deck while it runs.
+the same from Marp's server instead (the deck's folder at `http://localhost:8080/`). Saving the deck reloads
+the page by itself, and the reload stays on the slide you were on: Marp keeps the current slide in the URL
+hash. A file the deck includes is not watched: save the deck once more to show that edit. Open from a file,
+Marp's overview cannot close again (its frame cannot talk to the page under `file://`); over `--serve` it can.
+The server listens on every network interface, so people on the same network can open the deck while it runs.
 
 | Key | Action |
 | --- | --- |

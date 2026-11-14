@@ -368,6 +368,56 @@ check(scalarDeck.status === 0 && scalarDeck.html.includes('MUST-SURVIVE-SENTINEL
   `an included file's ---…--- block of plain prose is kept: only YAML settings (or an empty block) is front matter (${scalarDeck.status})`);
 fs.rmSync(guards, { recursive: true, force: true });
 
+// --serve: saving the deck reloads the open page by itself, and the reload stays on the slide being shown
+// (Marp keeps the current slide in the URL hash). A real browser drives it, because the reload lives in the page.
+const serveDir = fs.mkdtempSync(path.join(os.tmpdir(), 'md2s-serve-'));
+const servedDeck = path.join(serveDir, 'served.md');
+const servedSrc = (mark) => `---\nmarp: true\npaginate: true\n---\n\n# Served\n\n${mark}\n\n---\n\n## Second\n\nsecond body\n`;
+fs.writeFileSync(servedDeck, servedSrc('SERVE_BEFORE'));
+const probeFile = path.join(out, 'serve-probe.cjs');
+fs.writeFileSync(probeFile, [
+  "const fs = require('fs');",
+  "const { spawn } = require('child_process');",
+  "const net = require('net');",
+  `const puppeteer = require(${JSON.stringify(require.resolve('puppeteer-core', { paths: [path.dirname(require.resolve('@marp-team/marp-cli/package.json'))] }))});`,
+  `const setup = require(${JSON.stringify(path.join(ROOT, 'src', 'setup.js'))});`,
+  `const deck = ${JSON.stringify(servedDeck)};`,
+  `const cli = ${JSON.stringify(path.join(ROOT, 'bin', 'md2s.js'))};`,
+  `const after = ${JSON.stringify(servedSrc('SERVE_AFTER'))};`,
+  'const delay = (ms) => new Promise((r) => setTimeout(r, ms));',
+  'const waitFor = async (fn, ms) => { const end = Date.now() + ms; while (Date.now() < end) { try { if (await fn()) return true; } catch (e) {} await delay(100); } return false; };',
+  '(async () => {',
+  '  const port = await new Promise((res, rej) => { const s = net.createServer(); s.on("error", rej); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); });',
+  '  const child = spawn(process.execPath, [cli, deck, "--serve", "--port", String(port)], { detached: true, stdio: ["ignore", "pipe", "pipe"] });',
+  '  let logs = ""; child.stdout.on("data", (d) => { logs += d; }); child.stderr.on("data", (d) => { logs += d; });',
+  '  const url = "http://127.0.0.1:" + port + "/served.md";',
+  '  let html = "";',
+  '  const up = await waitFor(async () => { const r = await fetch(url); if (!r.ok) return false; html = await r.text(); return true; }, 20000);',
+  '  if (!up) throw new Error("server did not answer: " + logs);',
+  '  let state = {}; let browser = null;',
+  '  try {',
+  '    browser = await puppeteer.launch({ executablePath: setup.chromium(), args: ["--no-sandbox", "--allow-file-access-from-files"] });',
+  '    const page = await browser.newPage();',
+  '    await page.goto(url, { waitUntil: "load" });',
+  '    await delay(1500);',
+  '    await page.evaluate(() => { location.hash = "#2"; });',
+  '    await delay(800);',
+  '    fs.writeFileSync(deck, after);',
+  '    const reloaded = await waitFor(() => page.evaluate(() => document.body.innerHTML.includes("SERVE_AFTER")), 15000);',
+  '    await delay(800);',
+  '    state = await page.evaluate(() => ({ hash: location.hash, target: (document.querySelector("section:target") || {}).id || null }));',
+  '    state.reloaded = reloaded;',
+  '  } finally { if (browser) await browser.close(); try { process.kill(-child.pid, "SIGTERM"); } catch (e) {} }',
+  '  console.log(JSON.stringify({ notifier: html.includes("marp-cli-watch-notifier"), ...state }));',
+  '})().catch((e) => { console.error(e.message); process.exitCode = 1; });'
+].join('\n'));
+const serveRun = spawnSync(process.execPath, [probeFile], { encoding: 'utf8', timeout: 120000 });
+let serveState = {};
+try { serveState = JSON.parse(serveRun.stdout.trim().split('\n').pop()); } catch { serveState = { err: serveRun.stderr.trim().slice(0, 300) || `exit ${serveRun.status}` }; }
+check(serveState.notifier && serveState.reloaded && serveState.hash === '#2' && serveState.target === '2',
+  `--serve reloads the page when the deck is saved, and stays on the slide (${JSON.stringify(serveState)})`);
+fs.rmSync(serveDir, { recursive: true, force: true });
+
 // a served deck that sits in a sub folder includes beside itself, not beside the folder the server started
 // in: the deck folder holds a part.md of its own, and the sub deck's own part.md is the one that must load
 // (the engine is driven directly here, as a server does, with no MD2S_DECK_FILE to name the file)
